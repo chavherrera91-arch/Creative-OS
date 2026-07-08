@@ -1,7 +1,7 @@
 import React from "react";
 import {
   BookOpen, Brain, Clapperboard, Crown, FileText, FlaskConical, Gauge, Gift,
-  Home, Image, LayoutDashboard, Layers, Lightbulb, Lock, Megaphone, Package,
+  Home, Image, LayoutDashboard, Layers, Lightbulb, Lock, LogIn, LogOut, Megaphone, Package,
   Rocket, ScanSearch, Settings as SettingsIcon, Sparkles, SwatchBook, Target, TrendingUp,
   UserRound, Video, Wand2, Zap, type LucideIcon,
 } from "lucide-react";
@@ -12,6 +12,7 @@ import HomeView from "./views/HomeView";
 import NewCampaignView from "./views/NewCampaignView";
 import SettingsView from "./views/SettingsView";
 import PlansView from "./views/PlansView";
+import AuthView from "./views/AuthView";
 import LockedModule from "./components/LockedModule";
 import { OverviewView, IntelligenceView, ScoreView, ViralView, CompetitorView } from "./views/AnalysisViews";
 import { HooksView, AdsView, ScriptsView, VisualView, ImagePromptsView, VideoPromptsView, UgcView, ThumbnailsView } from "./views/GenerationViews";
@@ -97,6 +98,27 @@ function CreditsWidget() {
   );
 }
 
+function UserBadge() {
+  const { cloud, user, setView, signOut } = useApp();
+  if (!cloud) return null;
+  if (!user) {
+    return (
+      <NavBtn active={false} onClick={() => setView("auth")} icon={LogIn} label="Iniciar sesión" accent />
+    );
+  }
+  return (
+    <div className="flex items-center gap-2 px-2.5 py-1.5 mb-1 rounded-lg bg-white/[0.03] border border-white/5">
+      <div className="w-6 h-6 rounded-full grad-btn flex items-center justify-center text-[10px] font-black text-white shrink-0">
+        {user.email.slice(0, 1).toUpperCase()}
+      </div>
+      <span className="text-[11px] text-zinc-400 truncate flex-1">{user.email}</span>
+      <button onClick={() => void signOut()} className="text-zinc-600 hover:text-red-400 transition-colors shrink-0" title="Cerrar sesión">
+        <LogOut size={13} />
+      </button>
+    </div>
+  );
+}
+
 function Shell() {
   const { view, setView, active, campaigns, setActive, hasModule } = useApp();
   const groups = ["Campaña", "Análisis", "Generación", "Conversión", "Estrategia"];
@@ -161,6 +183,7 @@ function Shell() {
         </div>
 
         <div className="p-3 border-t border-white/5">
+          <UserBadge />
           <CreditsWidget />
           <NavBtn active={view === "settings"} onClick={() => setView("settings")} icon={SettingsIcon} label="Configuración" />
         </div>
@@ -173,7 +196,8 @@ function Shell() {
           {view === "new" && <NewCampaignView />}
           {view === "settings" && <SettingsView />}
           {view === "plans" && <PlansView />}
-          {view !== "home" && view !== "new" && view !== "settings" && view !== "plans" && (
+          {view === "auth" && <AuthView />}
+          {view !== "home" && view !== "new" && view !== "settings" && view !== "plans" && view !== "auth" && (
             active ? <div className="fade-up" key={view + active.id}><ModuleContent id={view} /></div> : <HomeView />
           )}
         </div>

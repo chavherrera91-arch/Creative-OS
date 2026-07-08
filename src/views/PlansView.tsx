@@ -1,22 +1,79 @@
-import React from "react";
-import { Check, Coins, Crown, Sparkles, X, Zap } from "lucide-react";
+import React, { useState } from "react";
+import { Check, Coins, CreditCard, Crown, Loader2, Sparkles, X, Zap } from "lucide-react";
 import { useApp } from "../store";
 import { Card, Chip, SectionHeader } from "../components/ui";
-import { ACTION_LABEL, CREDIT_COSTS, CreditAction, PLANS, getPlan, isUpgrade } from "../plans";
+import { ACTION_LABEL, CREDIT_COSTS, CreditAction, PLANS, PlanId, getPlan, isUpgrade } from "../plans";
+import { supabase } from "../lib/supabase";
+
+async function callApi(path: string, body: object): Promise<{ url?: string; error?: string }> {
+  const { data } = await supabase!.auth.getSession();
+  const res = await fetch(path, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${data.session?.access_token ?? ""}`,
+    },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
 
 export default function PlansView() {
-  const { account, changePlan, setView } = useApp();
+  const { account, changePlan, setView, cloud, user } = useApp();
   const current = getPlan(account.planId);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [apiError, setApiError] = useState("");
 
-  const select = (planId: typeof account.planId) => {
+  const select = async (planId: PlanId) => {
     if (planId === account.planId) return;
     const plan = getPlan(planId);
+
+    // ---- Modo nube: pago real vía Stripe ----
+    if (cloud) {
+      if (!user) {
+        setView("auth");
+        return;
+      }
+      setApiError("");
+      setBusy(planId);
+      try {
+        if (planId === "free") {
+          // Bajar a gratis = cancelar la suscripción desde el portal de Stripe
+          const r = await callApi("/api/portal", {});
+          if (r.url) window.location.href = r.url;
+          else setApiError(r.error ?? "No se pudo abrir el portal de facturación.");
+        } else {
+          const r = await callApi("/api/checkout", { plan: planId });
+          if (r.url) window.location.href = r.url;
+          else setApiError(r.error ?? "No se pudo iniciar el pago.");
+        }
+      } catch {
+        setApiError("Error de conexión con el servidor de pagos.");
+      } finally {
+        setBusy(null);
+      }
+      return;
+    }
+
+    // ---- Modo demo (sin Supabase/Stripe configurados) ----
     const upgrading = isUpgrade(account.planId, planId);
     const msg = upgrading
       ? `Activar el plan ${plan.name} ($${plan.price}/mes).\n\nRecibirás ${plan.credits} créditos y hasta ${plan.campaignLimit} campañas al mes.\n\n(Modo demo: la pasarela de pago aún no está conectada — el plan se activa al instante.)`
       : `¿Bajar al plan ${plan.name}? Perderás acceso a los módulos superiores y tus créditos se ajustarán a ${plan.credits}.`;
     if (confirm(msg)) {
       changePlan(planId);
+    }
+  };
+
+  const openPortal = async () => {
+    setApiError("");
+    setBusy("portal");
+    try {
+      const r = await callApi("/api/portal", {});
+      if (r.url) window.location.href = r.url;
+      else setApiError(r.error ?? "No se pudo abrir el portal.");
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -87,16 +144,17 @@ export default function PlansView() {
 
               <button
                 onClick={() => select(plan.id)}
-                disabled={isCurrent}
-                className={`mt-6 rounded-xl px-5 py-3 text-sm font-bold transition-colors ${
+                disabled={isCurrent || busy !== null}
+                className={`mt-6 rounded-xl px-5 py-3 text-sm font-bold transition-colors inline-flex items-center justify-center gap-2 ${
                   isCurrent
                     ? "bg-white/5 text-zinc-500 cursor-default"
                     : plan.highlight
-                      ? "grad-btn text-white"
-                      : "bg-white/10 hover:bg-white/15 text-white"
+                      ? "grad-btn text-white disabled:opacity-50"
+                      : "bg-white/10 hover:bg-white/15 text-white disabled:opacity-50"
                 }`}
               >
-                {isCurrent ? "Plan activo" : plan.cta}
+                {busy === plan.id && <Loader2 size={14} className="spinner" />}
+                {isCurrent ? "Plan activo" : cloud && !user ? "Crear cuenta para empezar" : plan.cta}
               </button>
             </div>
           );
@@ -124,15 +182,30 @@ export default function PlansView() {
         <Card>
           <h3 className="font-bold mb-3 flex items-center gap-2"><Sparkles size={17} className="text-violet-300" /> Tu cuenta ahora mismo</h3>
           <div className="space-y-3 text-sm">
+            {cloud && <Row k="Sesión" v={user ? <span className="text-emerald-300">{user.email}</span> : <span className="text-zinc-500">Sin iniciar</span>} />}
             <Row k="Plan actual" v={<span className="font-bold">{current.name} — ${current.price}/mes</span>} />
             <Row k="Créditos disponibles" v={<span className="font-bold text-amber-300">{account.credits} de {current.credits}</span>} />
             <Row k="Campañas este mes" v={`${account.campaignsThisMonth} de ${current.campaignLimit}`} />
             <Row k="Renovación" v="Día 1 del próximo mes" />
           </div>
+
+          {apiError && <p className="text-xs text-red-400 mt-3">{apiError}</p>}
+
+          {cloud && user && account.planId !== "free" && (
+            <button
+              onClick={openPortal}
+              disabled={busy !== null}
+              className="mt-4 w-full rounded-xl bg-white/10 hover:bg-white/15 px-4 py-2.5 text-xs font-bold text-white inline-flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {busy === "portal" ? <Loader2 size={13} className="spinner" /> : <CreditCard size={13} />}
+              Gestionar suscripción (tarjeta, factura, cancelar)
+            </button>
+          )}
+
           <p className="text-[11px] text-zinc-600 mt-4 leading-relaxed">
-            * Uso ilimitado sujeto al saldo de créditos del plan. Al mejorar de plan recibes la asignación
-            completa del nuevo plan al instante. Pagos reales (Stripe) próximamente — por ahora los cambios
-            de plan se activan en modo demo.
+            {cloud
+              ? "* Pagos procesados de forma segura por Stripe. Tu plan y créditos se validan en el servidor. Uso sujeto al saldo de créditos del plan."
+              : "* Uso sujeto al saldo de créditos del plan. Modo demo activo: conecta Supabase y Stripe (ver SETUP.md) para activar cuentas y pagos reales."}
           </p>
           <button onClick={() => setView("new")} className="mt-4 text-xs font-semibold text-cyan-300 hover:text-cyan-200">
             → Usar mis créditos en una campaña nueva

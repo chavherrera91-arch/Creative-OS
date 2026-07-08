@@ -20,7 +20,7 @@ const STEPS = [
 ];
 
 export default function NewCampaignView() {
-  const { addCampaign, setView, settings, account, checkSpend, spend } = useApp();
+  const { addCampaign, setView, settings, account, checkSpend, spend, cloud, user } = useApp();
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
@@ -54,14 +54,19 @@ export default function NewCampaignView() {
 
   const spendCheck = checkSpend("campaign");
   const plan = getPlan(account.planId);
+  const needsAuth = cloud && !user;
 
   const generate = async () => {
+    if (needsAuth) {
+      setView("auth");
+      return;
+    }
     const finalName = name.trim() || guessNameFromUrl(url) || "";
     if (!finalName) {
       setError("Escribe el nombre del producto (o pega una URL de la que se pueda deducir).");
       return;
     }
-    if (!spend("campaign")) {
+    if (!(await spend("campaign"))) {
       setError(
         spendCheck.reason === "limit"
           ? `Alcanzaste el límite de ${plan.campaignLimit} campaña(s) de tu plan ${plan.name} este mes.`
@@ -136,7 +141,22 @@ export default function NewCampaignView() {
         subtitle="Pega un link de AliExpress, Amazon, Shopify, TikTok o cualquier tienda — o sube una imagen. La IA construye todo lo demás."
       />
 
-      {!spendCheck.ok && (
+      {needsAuth && (
+        <div className="mb-5 rounded-2xl border border-cyan-500/25 bg-cyan-500/[0.07] p-5 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/15 flex items-center justify-center shrink-0">
+            <Sparkles size={18} className="text-cyan-300" />
+          </div>
+          <div className="flex-1">
+            <div className="font-bold text-sm text-cyan-200">Crea tu cuenta gratis para generar campañas</div>
+            <p className="text-xs text-zinc-400 mt-1">Tu plan y tus créditos se guardan de forma segura en tu cuenta. Empiezas con 10 créditos sin tarjeta.</p>
+          </div>
+          <button onClick={() => setView("auth")} className="grad-btn rounded-xl px-4 py-2.5 text-xs font-bold text-white shrink-0">
+            Crear cuenta
+          </button>
+        </div>
+      )}
+
+      {!needsAuth && !spendCheck.ok && (
         <div className="mb-5 rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] p-5 flex items-start gap-4">
           <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
             <Crown size={18} className="text-amber-300" />

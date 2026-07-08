@@ -45,6 +45,12 @@ Abre http://localhost:5173
 
 Cada campaña se exporta como **Markdown** (Notion/Docs), **JSON** (integraciones) o copia directa al portapapeles. Las campañas se guardan automáticamente en el navegador.
 
+## Suscripciones y créditos
+
+Tres planes mensuales — **Gratis** ($0: 1 campaña, análisis), **Premium** ($10: 10 campañas, producción de contenido) y **Max** ($20: 50 campañas, arsenal completo) — con sistema de créditos por acción (campaña 10, competidor 5, diagnóstico 5) que se renuevan el día 1 de cada mes.
+
+**Cuentas y pagos reales:** el código de Supabase (auth + validación de créditos en servidor) y Stripe (checkout + webhooks + portal de facturación) ya está integrado. Sigue **[SETUP.md](SETUP.md)** (~15 min) para conectar tus claves y activarlo. Sin claves, la app funciona en modo demo local.
+
 ## Stack
 
-React 18 · TypeScript · Vite 6 · Tailwind CSS 4 · Anthropic SDK · lucide-react
+React 18 · TypeScript · Vite 6 · Tailwind CSS 4 · Supabase · Stripe · Vercel Functions · Anthropic SDK · lucide-react

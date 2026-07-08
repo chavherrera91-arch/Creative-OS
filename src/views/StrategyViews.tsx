@@ -247,9 +247,9 @@ export function IterationView() {
   const [creditError, setCreditError] = useState(false);
   if (!c) return null;
 
-  const analyze = () => {
+  const analyze = async () => {
     if (!desc.trim()) return;
-    if (!spend("iteration")) {
+    if (!(await spend("iteration"))) {
       setCreditError(true);
       return;
     }

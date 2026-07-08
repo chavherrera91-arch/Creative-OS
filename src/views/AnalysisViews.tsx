@@ -307,9 +307,9 @@ export function CompetitorView() {
   const [creditError, setCreditError] = useState(false);
   if (!c) return null;
 
-  const analyze = () => {
+  const analyze = async () => {
     if (!url.trim()) return;
-    if (!spend("competitor")) {
+    if (!(await spend("competitor"))) {
       setCreditError(true);
       return;
     }
