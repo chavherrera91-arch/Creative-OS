@@ -1,7 +1,8 @@
 import React, { useRef, useState } from "react";
-import { ImagePlus, Link2, Loader2, Rocket, Sparkles, X } from "lucide-react";
+import { Crown, ImagePlus, Link2, Loader2, Rocket, Sparkles, X, Zap } from "lucide-react";
 import { useApp } from "../store";
 import { Card, Field, inputCls, SectionHeader } from "../components/ui";
+import { CREDIT_COSTS, getPlan } from "../plans";
 import { CATEGORIES, detectCategory } from "../engine/data";
 import { detectSourceType, generateCampaign, guessNameFromUrl, SOURCE_LABEL } from "../engine/generate";
 import { enhanceWithClaude } from "../engine/claude";
@@ -19,7 +20,7 @@ const STEPS = [
 ];
 
 export default function NewCampaignView() {
-  const { addCampaign, setView, settings } = useApp();
+  const { addCampaign, setView, settings, account, checkSpend, spend } = useApp();
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
@@ -51,10 +52,21 @@ export default function NewCampaignView() {
     reader.readAsDataURL(f);
   };
 
+  const spendCheck = checkSpend("campaign");
+  const plan = getPlan(account.planId);
+
   const generate = async () => {
     const finalName = name.trim() || guessNameFromUrl(url) || "";
     if (!finalName) {
       setError("Escribe el nombre del producto (o pega una URL de la que se pueda deducir).");
+      return;
+    }
+    if (!spend("campaign")) {
+      setError(
+        spendCheck.reason === "limit"
+          ? `Alcanzaste el límite de ${plan.campaignLimit} campaña(s) de tu plan ${plan.name} este mes.`
+          : `No te quedan créditos suficientes (necesitas ${CREDIT_COSTS.campaign}).`
+      );
       return;
     }
     setError("");
@@ -123,6 +135,28 @@ export default function NewCampaignView() {
         title="Nueva campaña"
         subtitle="Pega un link de AliExpress, Amazon, Shopify, TikTok o cualquier tienda — o sube una imagen. La IA construye todo lo demás."
       />
+
+      {!spendCheck.ok && (
+        <div className="mb-5 rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] p-5 flex items-start gap-4">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+            <Crown size={18} className="text-amber-300" />
+          </div>
+          <div className="flex-1">
+            <div className="font-bold text-sm text-amber-200">
+              {spendCheck.reason === "limit"
+                ? `Alcanzaste el límite de ${plan.campaignLimit} campaña(s) al mes de tu plan ${plan.name}`
+                : `Te quedan ${account.credits} créditos — generar una campaña cuesta ${CREDIT_COSTS.campaign}`}
+            </div>
+            <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+              Mejora tu plan para seguir generando hoy mismo: Premium incluye 10 campañas y 100 créditos al mes por $10,
+              y Max sube a 50 campañas y 500 créditos por $20. Tus créditos se renuevan el día 1 de cada mes.
+            </p>
+          </div>
+          <button onClick={() => setView("plans")} className="grad-btn rounded-xl px-4 py-2.5 text-xs font-bold text-white shrink-0">
+            Ver planes
+          </button>
+        </div>
+      )}
 
       <Card className="space-y-5">
         <Field label="Link del producto" hint={url ? `Fuente detectada: ${SOURCE_LABEL[sourceType]}` : "AliExpress · Amazon · Shopify · TikTok · Cualquier tienda"}>
@@ -193,8 +227,15 @@ export default function NewCampaignView() {
               ? `Generación con Claude (${settings.model}) activada`
               : "Motor local activo — conecta la API de Claude en Configuración para resultados con IA real"}
           </div>
-          <button onClick={generate} className="grad-btn inline-flex items-center gap-2 rounded-xl px-6 py-3 font-bold text-white">
+          <button
+            onClick={generate}
+            disabled={!spendCheck.ok}
+            className="grad-btn inline-flex items-center gap-2 rounded-xl px-6 py-3 font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed"
+          >
             <Rocket size={16} /> Generar campaña
+            <span className="text-[11px] font-semibold bg-white/20 rounded-full px-2 py-0.5 inline-flex items-center gap-1">
+              <Zap size={10} /> {CREDIT_COSTS.campaign}
+            </span>
           </button>
         </div>
       </Card>

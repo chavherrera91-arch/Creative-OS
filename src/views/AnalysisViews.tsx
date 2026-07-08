@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { AlertTriangle, ArrowRight, CheckCircle2, Loader2, Minus, Plus, ScanSearch, ShieldQuestion, Swords, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Loader2, Minus, Plus, ScanSearch, ShieldQuestion, Swords, TrendingUp, Zap } from "lucide-react";
 import { useApp } from "../store";
 import { Bar, Card, Chip, CopyBtn, Field, inputCls, KV, ScoreRing, SectionHeader, Stars } from "../components/ui";
 import { analyzeCompetitor, SOURCE_LABEL } from "../engine/generate";
 import { getCategory } from "../engine/data";
+import { CREDIT_COSTS } from "../plans";
 
 // ============ Resumen de campaña ============
 export function OverviewView() {
@@ -299,14 +300,20 @@ export function ViralView() {
 
 // ============ 10. Competitor Analyzer ============
 export function CompetitorView() {
-  const { active: c, updateCampaign } = useApp();
+  const { active: c, updateCampaign, spend, setView, account } = useApp();
   const [url, setUrl] = useState(c?.competitor?.url ?? "");
   const [copyText, setCopyText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [creditError, setCreditError] = useState(false);
   if (!c) return null;
 
   const analyze = () => {
     if (!url.trim()) return;
+    if (!spend("competitor")) {
+      setCreditError(true);
+      return;
+    }
+    setCreditError(false);
     setLoading(true);
     setTimeout(() => {
       const result = analyzeCompetitor(url.trim(), copyText, getCategory(c.input.categoryId), c.input.name);
@@ -328,9 +335,20 @@ export function CompetitorView() {
         <Field label="Copy del competidor (opcional pero recomendado)" hint="Entra a su web, selecciona todo el texto visible (Ctrl+A, Ctrl+C) y pégalo aquí. El análisis detecta hooks, CTAs, ofertas y garantías reales.">
           <textarea className={`${inputCls} min-h-28 resize-y`} placeholder="Pega aquí el texto de su landing, sus anuncios o su página de producto…" value={copyText} onChange={(e) => setCopyText(e.target.value)} />
         </Field>
-        <button onClick={analyze} disabled={!url.trim() || loading} className="grad-btn rounded-xl px-5 py-2.5 text-sm font-bold text-white disabled:opacity-40 inline-flex items-center gap-2">
-          {loading ? <Loader2 size={14} className="spinner" /> : <ScanSearch size={15} />} Analizar competidor
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={analyze} disabled={!url.trim() || loading} className="grad-btn rounded-xl px-5 py-2.5 text-sm font-bold text-white disabled:opacity-40 inline-flex items-center gap-2">
+            {loading ? <Loader2 size={14} className="spinner" /> : <ScanSearch size={15} />} Analizar competidor
+            <span className="text-[11px] font-semibold bg-white/20 rounded-full px-2 py-0.5 inline-flex items-center gap-1">
+              <Zap size={10} /> {CREDIT_COSTS.competitor}
+            </span>
+          </button>
+          {creditError && (
+            <span className="text-xs text-amber-300">
+              Sin créditos suficientes ({account.credits} disponibles) ·{" "}
+              <button onClick={() => setView("plans")} className="underline font-semibold">Ver planes</button>
+            </span>
+          )}
+        </div>
       </Card>
 
       {comp && (

@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { Check, Download, ExternalLink, FileJson, FileText, Loader2, Star, Wand2, X } from "lucide-react";
+import { Check, Download, ExternalLink, FileJson, FileText, Loader2, Star, Wand2, X, Zap } from "lucide-react";
 import { useApp } from "../store";
 import { Card, Chip, CopyBtn, Field, inputCls, SectionHeader, Stars } from "../components/ui";
 import { analyzeIteration } from "../engine/generate";
 import { getCategory } from "../engine/data";
 import { campaignToMarkdown, download } from "../engine/exporter";
+import { CREDIT_COSTS } from "../plans";
 
 // ============ 13. Landing Copy ============
 export function LandingView() {
@@ -240,13 +241,19 @@ export function AbTestingView() {
 
 // ============ 17. Creative Iteration ============
 export function IterationView() {
-  const { active: c, updateCampaign } = useApp();
+  const { active: c, updateCampaign, spend, setView, account } = useApp();
   const [desc, setDesc] = useState(c?.iteration?.input ?? "");
   const [loading, setLoading] = useState(false);
+  const [creditError, setCreditError] = useState(false);
   if (!c) return null;
 
   const analyze = () => {
     if (!desc.trim()) return;
+    if (!spend("iteration")) {
+      setCreditError(true);
+      return;
+    }
+    setCreditError(false);
     setLoading(true);
     setTimeout(() => {
       const result = analyzeIteration(desc.trim(), getCategory(c.input.categoryId), c.input.name);
@@ -267,9 +274,20 @@ export function IterationView() {
             placeholder={`Ej: Video de 40 segundos. Abre con el logo de la marca 3 segundos, luego muestro el producto girando con música de stock, explico 4 características, y termino con "compra ahora" y "síguenos". La retención cae al 40% en el segundo 5…`}
             value={desc} onChange={(e) => setDesc(e.target.value)} />
         </Field>
-        <button onClick={analyze} disabled={!desc.trim() || loading} className="grad-btn rounded-xl px-5 py-2.5 text-sm font-bold text-white disabled:opacity-40 inline-flex items-center gap-2">
-          {loading ? <Loader2 size={14} className="spinner" /> : <Wand2 size={15} />} Diagnosticar creativo
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={analyze} disabled={!desc.trim() || loading} className="grad-btn rounded-xl px-5 py-2.5 text-sm font-bold text-white disabled:opacity-40 inline-flex items-center gap-2">
+            {loading ? <Loader2 size={14} className="spinner" /> : <Wand2 size={15} />} Diagnosticar creativo
+            <span className="text-[11px] font-semibold bg-white/20 rounded-full px-2 py-0.5 inline-flex items-center gap-1">
+              <Zap size={10} /> {CREDIT_COSTS.iteration}
+            </span>
+          </button>
+          {creditError && (
+            <span className="text-xs text-amber-300">
+              Sin créditos suficientes ({account.credits} disponibles) ·{" "}
+              <button onClick={() => setView("plans")} className="underline font-semibold">Ver planes</button>
+            </span>
+          )}
+        </div>
       </Card>
 
       {it && (

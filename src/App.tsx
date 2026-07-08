@@ -1,15 +1,18 @@
 import React from "react";
 import {
-  BookOpen, Brain, Clapperboard, FileText, FlaskConical, Gauge, Gift,
-  Home, Image, LayoutDashboard, Layers, Lightbulb, Megaphone, Package,
+  BookOpen, Brain, Clapperboard, Crown, FileText, FlaskConical, Gauge, Gift,
+  Home, Image, LayoutDashboard, Layers, Lightbulb, Lock, Megaphone, Package,
   Rocket, ScanSearch, Settings as SettingsIcon, Sparkles, SwatchBook, Target, TrendingUp,
   UserRound, Video, Wand2, Zap, type LucideIcon,
 } from "lucide-react";
 import { useApp, AppProvider } from "./store";
 import { MODULES, ModuleId } from "./types";
+import { getPlan } from "./plans";
 import HomeView from "./views/HomeView";
 import NewCampaignView from "./views/NewCampaignView";
 import SettingsView from "./views/SettingsView";
+import PlansView from "./views/PlansView";
+import LockedModule from "./components/LockedModule";
 import { OverviewView, IntelligenceView, ScoreView, ViralView, CompetitorView } from "./views/AnalysisViews";
 import { HooksView, AdsView, ScriptsView, VisualView, ImagePromptsView, VideoPromptsView, UgcView, ThumbnailsView } from "./views/GenerationViews";
 import { LandingView, OffersView, PlannerView, AbTestingView, IterationView, LibraryView, ExportView } from "./views/StrategyViews";
@@ -38,6 +41,8 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 function ModuleContent({ id }: { id: ModuleId }) {
+  const { hasModule } = useApp();
+  if (!hasModule(id)) return <LockedModule moduleId={id} />;
   switch (id) {
     case "overview": return <OverviewView />;
     case "intelligence": return <IntelligenceView />;
@@ -62,8 +67,38 @@ function ModuleContent({ id }: { id: ModuleId }) {
   }
 }
 
+function CreditsWidget() {
+  const { account, setView } = useApp();
+  const plan = getPlan(account.planId);
+  const pct = Math.max(0, Math.min(100, (account.credits / plan.credits) * 100));
+  const low = account.credits < 10;
+  return (
+    <button
+      onClick={() => setView("plans")}
+      className="w-full text-left rounded-xl bg-white/[0.03] border border-white/10 hover:border-violet-500/40 transition-colors p-3 mb-2"
+      title="Ver planes y créditos"
+    >
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Plan {plan.name}</span>
+        <span className={`text-xs font-bold ${low ? "text-amber-300" : "text-zinc-300"}`}>
+          ⚡ {account.credits}
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${pct}%`, background: low ? "#fbbf24" : "linear-gradient(90deg,#7c3aed,#22d3ee)", transition: "width 0.5s ease" }}
+        />
+      </div>
+      <div className="text-[10px] text-zinc-600 mt-1.5">
+        {account.credits} de {plan.credits} créditos · {account.campaignsThisMonth}/{plan.campaignLimit} campañas
+      </div>
+    </button>
+  );
+}
+
 function Shell() {
-  const { view, setView, active, campaigns, setActive } = useApp();
+  const { view, setView, active, campaigns, setActive, hasModule } = useApp();
   const groups = ["Campaña", "Análisis", "Generación", "Conversión", "Estrategia"];
 
   return (
@@ -83,6 +118,7 @@ function Shell() {
         <div className="flex-1 overflow-y-auto py-4 px-3">
           <NavBtn active={view === "home"} onClick={() => setView("home")} icon={Home} label="Inicio" />
           <NavBtn active={view === "new"} onClick={() => setView("new")} icon={Rocket} label="Nueva campaña" accent />
+          <NavBtn active={view === "plans"} onClick={() => setView("plans")} icon={Crown} label="Planes y precios" />
 
           {active ? (
             <>
@@ -110,6 +146,7 @@ function Shell() {
                         onClick={() => setView(m.id)}
                         icon={ICONS[m.id] ?? Lightbulb}
                         label={m.name}
+                        locked={!hasModule(m.id)}
                       />
                     ))}
                   </div>
@@ -124,6 +161,7 @@ function Shell() {
         </div>
 
         <div className="p-3 border-t border-white/5">
+          <CreditsWidget />
           <NavBtn active={view === "settings"} onClick={() => setView("settings")} icon={SettingsIcon} label="Configuración" />
         </div>
       </aside>
@@ -134,7 +172,8 @@ function Shell() {
           {view === "home" && <HomeView />}
           {view === "new" && <NewCampaignView />}
           {view === "settings" && <SettingsView />}
-          {view !== "home" && view !== "new" && view !== "settings" && (
+          {view === "plans" && <PlansView />}
+          {view !== "home" && view !== "new" && view !== "settings" && view !== "plans" && (
             active ? <div className="fade-up" key={view + active.id}><ModuleContent id={view} /></div> : <HomeView />
           )}
         </div>
@@ -143,19 +182,20 @@ function Shell() {
   );
 }
 
-function NavBtn({ active, onClick, icon: Icon, label, accent }: {
+function NavBtn({ active, onClick, icon: Icon, label, accent, locked }: {
   active: boolean; onClick: () => void;
   icon: LucideIcon;
-  label: string; accent?: boolean;
+  label: string; accent?: boolean; locked?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       className={`w-full flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] font-medium transition-colors mb-0.5 text-left
-        ${active ? "bg-violet-500/15 text-violet-200" : accent ? "text-cyan-300 hover:bg-white/5" : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5"}`}
+        ${active ? "bg-violet-500/15 text-violet-200" : accent ? "text-cyan-300 hover:bg-white/5" : locked ? "text-zinc-600 hover:text-zinc-400 hover:bg-white/5" : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5"}`}
     >
       <Icon size={15} className={active ? "text-violet-300" : ""} />
-      <span className="truncate">{label}</span>
+      <span className="truncate flex-1">{label}</span>
+      {locked && <Lock size={11} className="text-zinc-700 shrink-0" />}
     </button>
   );
 }
