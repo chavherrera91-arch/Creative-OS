@@ -1,0 +1,505 @@
+import type { Audience } from "../types";
+
+// Base de conocimiento por categoría de producto.
+// {p} se sustituye por el nombre del producto.
+
+export interface CategoryKB {
+  id: string;
+  name: string;
+  keywords: string[];
+  problem: string;
+  secondaryProblems: string[];
+  benefits: string[];
+  desires: string[];
+  fears: string[];
+  audiences: Audience[];
+  visualHooks: string[];
+  environment: string;
+  demoAction: string;
+  wowMoment: string;
+  priceBand: [number, number];
+  saturation: number;
+  visualAppeal: number;
+  explainability: number;
+  ugcFit: number;
+}
+
+export const CATEGORIES: CategoryKB[] = [
+  {
+    id: "cocina",
+    name: "Cocina y gadgets de cocina",
+    keywords: ["cocina", "kitchen", "chef", "cortador", "slicer", "peeler", "pelador", "licuadora", "blender", "freidora", "fryer", "sarten", "pan", "knife", "cuchillo", "utensilio", "picador", "chopper", "espatula", "olla", "pot", "food", "recipiente", "tupper", "botella", "bottle", "cafetera", "coffee", "te", "tea", "huevo", "egg", "vegetal", "vegetable", "fruta", "fruit", "microondas", "dispensador", "organizador cocina"],
+    problem: "Cocinar a diario consume demasiado tiempo y las tareas repetitivas (cortar, pelar, limpiar) hacen que la gente termine pidiendo comida fuera",
+    secondaryProblems: [
+      "Los utensilios tradicionales son lentos y peligrosos para manos inexpertas",
+      "La cocina se llena de aparatos de un solo uso que ocupan espacio",
+      "Limpiar después de cocinar desmotiva más que cocinar en sí",
+      "Comer sano requiere preparación, y la preparación requiere tiempo que nadie tiene",
+      "Los resultados caseros nunca se ven como los de los vídeos de recetas",
+    ],
+    benefits: [
+      "Reduce a segundos una tarea que tomaba minutos",
+      "Resultados uniformes y profesionales sin habilidad previa",
+      "Se limpia en segundos o va directo al lavavajillas",
+      "Compacto: se guarda en cualquier cajón",
+      "Hace que cocinar sano sea tan rápido como pedir delivery",
+      "Apto para principiantes: imposible equivocarse",
+      "Ahorra dinero al cocinar más en casa",
+      "Convierte la preparación de comida en algo satisfactorio de ver",
+    ],
+    desires: ["comer sano sin esfuerzo", "sentirse un chef en casa", "ahorrar tiempo cada día", "una cocina ordenada y funcional", "sorprender a la familia con resultados pro"],
+    fears: ["cortarse con cuchillos", "perder tiempo cocinando tras un día agotador", "gastar en aparatos que terminan en un cajón", "que la comida casera sea aburrida"],
+    audiences: [
+      { name: "Padres/madres con poco tiempo", description: "25-45 años, cocinan a diario para la familia, buscan velocidad sin sacrificar salud", pains: ["llegar tarde y tener que cocinar", "niños esperando hambrientos", "fregar pilas de utensilios"] },
+      { name: "Meal preppers y fitness", description: "20-35 años, preparan comida semanal, obsesionados con eficiencia y macros", pains: ["domingos enteros cocinando", "cortes irregulares que cocinan mal", "aburrimiento de la preparación"] },
+      { name: "Jóvenes independizados", description: "18-28 años, cocinan por primera vez, poca habilidad y poco espacio", pains: ["no saber usar bien un cuchillo", "cocinas diminutas", "gastar demasiado en delivery"] },
+    ],
+    visualHooks: ["corte en cámara rápida con resultado perfecto", "antes: tabla desordenada / después: cubos perfectos", "manos torpes vs. resultado pro", "ASMR de cortes y texturas", "timer en pantalla: tarea completa en 10 segundos", "montaña de delivery vs. plato casero bonito"],
+    environment: "una cocina moderna y luminosa",
+    demoAction: "preparar una comida completa usando el producto en tiempo récord",
+    wowMoment: "el momento exacto en que la tarea que tomaba 10 minutos se completa en segundos",
+    priceBand: [19, 49],
+    saturation: 4,
+    visualAppeal: 5,
+    explainability: 5,
+    ugcFit: 5,
+  },
+  {
+    id: "hogar",
+    name: "Hogar y organización",
+    keywords: ["hogar", "home", "casa", "organizador", "organizer", "storage", "almacenamiento", "closet", "armario", "lampara", "lamp", "luz", "light", "led", "decoracion", "decor", "mueble", "furniture", "sofa", "cortina", "curtain", "alfombra", "rug", "estante", "shelf", "colgador", "hanger", "humidificador", "humidifier", "aroma", "difusor", "diffuser", "vela", "candle"],
+    problem: "Los espacios pequeños y el desorden acumulado generan estrés diario, y organizarse parece requerir tiempo y dinero que no se tiene",
+    secondaryProblems: [
+      "El desorden visual aumenta la ansiedad y la sensación de caos",
+      "Los muebles y soluciones de organización buenos son caros",
+      "Cada rincón desaprovechado es espacio que se paga en el alquiler",
+      "La casa nunca se ve como las de Pinterest por más que se intente",
+      "Ordenar funciona una semana y luego todo vuelve al caos",
+    ],
+    benefits: [
+      "Transforma el espacio visiblemente en minutos, sin obras ni herramientas",
+      "Duplica el espacio de almacenamiento disponible",
+      "Estética premium a precio accesible",
+      "Instalación en minutos: no requiere habilidades",
+      "Convierte el caos diario en un sistema que se mantiene solo",
+      "El 'antes y después' es tan visual que engancha a cualquiera",
+      "Mejora el ambiente y el ánimo en casa",
+    ],
+    desires: ["una casa que dé paz al entrar", "aprovechar cada centímetro", "estética de revista con presupuesto real", "recibir visitas sin vergüenza", "sentir control sobre su espacio"],
+    fears: ["gastar en soluciones que no funcionan", "taladrar y arruinar paredes de alquiler", "que el desorden vuelva en una semana"],
+    audiences: [
+      { name: "Inquilinos de espacios pequeños", description: "22-35 años, pisos compartidos o estudios, no pueden hacer obras", pains: ["cero espacio de almacenamiento", "prohibido taladrar", "mudanzas frecuentes"] },
+      { name: "Amantes de la decoración", description: "25-45 años, siguen cuentas de deco, quieren estética aesthetic sin gastar de más", pains: ["presupuesto limitado vs. gustos caros", "casa que no refleja su estilo", "envidia sana de Pinterest"] },
+      { name: "Familias con niños", description: "30-45 años, juguetes y cosas por todas partes, buscan sistemas que los niños puedan mantener", pains: ["orden que dura minutos", "pisar juguetes de noche", "cero tiempo para organizar"] },
+    ],
+    visualHooks: ["antes y después dramático del mismo espacio", "time-lapse de transformación", "tour del rincón imposible ahora aprovechado", "satisfying restock/organización ASMR", "reacción de la pareja al ver el cambio", "medir el espacio ganado en cámara"],
+    environment: "un apartamento moderno tipo estudio",
+    demoAction: "transformar un rincón caótico en un espacio ordenado y estético",
+    wowMoment: "la revelación del después: mismo espacio, apariencia completamente distinta",
+    priceBand: [15, 59],
+    saturation: 3,
+    visualAppeal: 5,
+    explainability: 5,
+    ugcFit: 5,
+  },
+  {
+    id: "belleza",
+    name: "Belleza y cuidado de la piel",
+    keywords: ["belleza", "beauty", "skincare", "piel", "skin", "facial", "face", "serum", "crema", "cream", "maquillaje", "makeup", "labial", "lipstick", "pestanas", "lash", "cejas", "brow", "pelo", "hair", "cabello", "rizador", "curler", "plancha", "straightener", "secador", "unas", "nail", "mascarilla", "mask", "acne", "arrugas", "wrinkle", "colageno", "collagen", "gua sha", "rodillo", "depilacion", "depiladora", "shaver", "ipl"],
+    problem: "Verse bien requiere rutinas caras y lentas: salones, citas y productos premium que suman cientos al mes y resultados que no siempre llegan",
+    secondaryProblems: [
+      "Los tratamientos profesionales son caros y hay que repetirlos constantemente",
+      "Las rutinas largas se abandonan a la segunda semana",
+      "La inseguridad diaria afecta fotos, citas y confianza en el trabajo",
+      "Demasiados productos prometen y no cumplen: la confianza está rota",
+      "Los resultados de otros parecen imposibles de replicar en casa",
+    ],
+    benefits: [
+      "Resultados de salón en casa por una fracción del precio",
+      "Rutina de minutos que sí se puede mantener",
+      "Resultados visibles que se notan en fotos y en el espejo",
+      "Una compra única vs. gasto mensual recurrente",
+      "Tecnología que antes solo existía en clínicas, ahora en tu baño",
+      "Suave y apto incluso para piel sensible",
+      "El efecto 'qué te hiciste' que todos notan pero nadie adivina",
+    ],
+    desires: ["verse bien sin depender del salón", "fotos sin filtros necesarios", "recuperar confianza", "una rutina simple que funcione", "resultados visibles rápido"],
+    fears: ["gastar otra vez en algo que no funciona", "dañar la piel o el pelo", "verse mayor de lo que se siente", "el precio acumulado del salón"],
+    audiences: [
+      { name: "Mujeres 25-40 ocupadas", description: "Trabajan, tienen poco tiempo, quieren verse bien sin rutinas de 10 pasos", pains: ["cero tiempo por las mañanas", "gasto mensual en salón", "piel/pelo castigado por el estrés"] },
+      { name: "Beauty enthusiasts", description: "18-30 años, consumen contenido de belleza, prueban tendencias virales", pains: ["presupuesto vs. deseo de probarlo todo", "miedo a productos falsos", "FOMO de tendencias"] },
+      { name: "Mujeres 40+ antiedad", description: "Buscan resultados reales contra líneas y flacidez sin procedimientos invasivos", pains: ["cremas que no hacen nada", "miedo a agujas y clínicas", "sentir que el espejo no las representa"] },
+    ],
+    visualHooks: ["antes y después en pantalla dividida", "rutina GRWM (get ready with me)", "textura del producto en macro ASMR", "reacción en espejo al ver el resultado", "comparación: salón $200 vs. esto $30", "resultados día 1 vs. día 30"],
+    environment: "un baño luminoso o tocador con espejo",
+    demoAction: "aplicar el producto en su rutina y mostrar el resultado inmediato",
+    wowMoment: "el antes/después en el que la diferencia se ve sin necesidad de explicación",
+    priceBand: [25, 89],
+    saturation: 5,
+    visualAppeal: 5,
+    explainability: 4,
+    ugcFit: 5,
+  },
+  {
+    id: "fitness",
+    name: "Fitness y deporte",
+    keywords: ["fitness", "gym", "ejercicio", "workout", "entrenamiento", "muscular", "muscle", "pesas", "dumbbell", "banda", "resistance", "yoga", "pilates", "correr", "running", "masaje", "massage", "gun", "pistola", "recuperacion", "recovery", "abdominal", "abs", "cuerda", "rope", "proteina", "protein", "electroestimulador", "ems", "postura", "posture", "corrector", "faja", "shaper"],
+    problem: "Ponerse en forma exige tiempo, gimnasio y constancia — y la mayoría abandona porque el proceso es incómodo, caro o no muestra resultados rápido",
+    secondaryProblems: [
+      "Las membresías de gimnasio se pagan y no se usan",
+      "El dolor y las agujetas post-entrenamiento desmotivan",
+      "Entrenar en casa aburre y no se sabe si se hace bien",
+      "Las horas sentado destruyen la postura y generan dolores crónicos",
+      "Sin resultados visibles en semanas, la motivación muere",
+    ],
+    benefits: [
+      "Entrena en casa sin gimnasio ni horarios",
+      "Resultados medibles con solo minutos al día",
+      "Alivia dolores y acelera la recuperación como un fisio personal",
+      "Ocupa poco espacio y se guarda en segundos",
+      "Hace el ejercicio más cómodo, para que la constancia sea posible",
+      "Una compra única vs. cuotas mensuales de gimnasio",
+      "Apto para todos los niveles, de principiante a avanzado",
+    ],
+    desires: ["verse y sentirse en forma", "eliminar dolores de espalda y cuello", "entrenar sin ir al gimnasio", "energía y postura de atleta", "resultados sin sacrificar horas"],
+    fears: ["lesionarse", "pagar gimnasio y no ir", "que el dolor de espalda sea crónico", "empezar otra vez y abandonar"],
+    audiences: [
+      { name: "Oficinistas con dolores", description: "25-45 años, 8+ horas sentados, dolor de espalda/cuello, buscan alivio práctico", pains: ["dolor diario al final de la jornada", "postura encorvada en fotos", "fisioterapia cara"] },
+      { name: "Fitness en casa", description: "20-40 años, entrenan o quieren entrenar en casa, poco espacio y tiempo", pains: ["falta de equipamiento", "aburrimiento y abandono", "no ver progreso"] },
+      { name: "Deportistas recreativos", description: "18-45 años, corren o entrenan regularmente, buscan rendimiento y recuperación", pains: ["agujetas que arruinan la semana", "lesiones recurrentes", "recuperación lenta"] },
+    ],
+    visualHooks: ["demostración del producto en acción real", "antes y después de postura o físico", "reacción de alivio instantáneo en cámara", "reto de X días con resultados", "comparación gimnasio vs. casa", "el producto usado en un lugar inesperado (oficina, sofá)"],
+    environment: "una sala de estar convertida en zona de entrenamiento",
+    demoAction: "usarlo en una sesión corta mostrando esfuerzo y alivio reales",
+    wowMoment: "la expresión de alivio o el resultado físico visible tras usarlo",
+    priceBand: [29, 99],
+    saturation: 4,
+    visualAppeal: 4,
+    explainability: 4,
+    ugcFit: 5,
+  },
+  {
+    id: "mascotas",
+    name: "Mascotas",
+    keywords: ["mascota", "pet", "perro", "dog", "gato", "cat", "cachorro", "puppy", "arena", "litter", "correa", "leash", "collar", "juguete perro", "pelo mascota", "cepillo", "grooming", "comedero", "feeder", "bebedero", "fountain", "cama perro", "rascador", "scratcher", "transportin", "carrier"],
+    problem: "Cuidar bien a una mascota exige tiempo y paciencia: pelos por todas partes, aburrimiento destructivo y rutinas de limpieza y alimentación que se comen el día",
+    secondaryProblems: [
+      "El pelo de mascota invade ropa, sofá y coche sin remedio",
+      "Las mascotas aburridas destruyen muebles y desarrollan ansiedad",
+      "Alimentar e hidratar bien cuando no estás en casa es un problema real",
+      "El grooming profesional es caro y estresa al animal",
+      "La culpa de dejarlos solos pesa más que cualquier gasto",
+    ],
+    benefits: [
+      "Resuelve en minutos lo que antes era una batalla diaria",
+      "Mascota entretenida y feliz incluso cuando no estás",
+      "Adiós a los pelos en el sofá, la ropa y el coche",
+      "Ahorra visitas caras al groomer o al veterinario",
+      "Diseñado pensando en el confort del animal: cero estrés",
+      "Más tiempo de calidad y menos tiempo de limpieza",
+      "La tranquilidad de saber que está bien cuidado",
+    ],
+    desires: ["una mascota feliz y sana", "casa limpia sin esfuerzo constante", "salir sin culpa", "ahorrar en veterinario y groomer", "contenido adorable para compartir"],
+    fears: ["que la mascota sufra o enferme", "gastos veterinarios sorpresa", "que destruya la casa", "juzgar mal un producto y estresarla"],
+    audiences: [
+      { name: "Pet parents millennials", description: "25-40 años, la mascota es un hijo más, gastan sin culpa en su bienestar", pains: ["culpa por dejarla sola", "pelos en todo", "productos que la mascota ignora"] },
+      { name: "Familias con mascotas", description: "30-50 años, mascota + niños, buscan practicidad y limpieza", pains: ["caos de pelos y juguetes", "tiempo de limpieza", "gastos que suman"] },
+      { name: "Dueños primerizos", description: "20-35 años, primer cachorro/gatito, compran todo lo que ven recomendado", pains: ["no saber qué necesita", "conducta destructiva", "ansiedad por hacerlo bien"] },
+    ],
+    visualHooks: ["reacción de la mascota al probarlo por primera vez", "antes: sofá lleno de pelos / después: impecable", "la mascota usándolo sola como un pro", "POV de la mascota", "compilación de reacciones adorables", "test: ¿lo ignora o lo ama?"],
+    environment: "un salón acogedor con la mascota como protagonista",
+    demoAction: "mostrar a la mascota usando o reaccionando al producto",
+    wowMoment: "la reacción genuina de la mascota (el mejor actor posible)",
+    priceBand: [19, 69],
+    saturation: 3,
+    visualAppeal: 5,
+    explainability: 5,
+    ugcFit: 5,
+  },
+  {
+    id: "tecnologia",
+    name: "Tecnología y gadgets",
+    keywords: ["gadget", "tech", "electronico", "electronic", "auricular", "earbud", "headphone", "audifono", "cargador", "charger", "cable", "usb", "smartwatch", "reloj", "watch", "proyector", "projector", "camara", "camera", "dron", "drone", "altavoz", "speaker", "bluetooth", "wifi", "teclado", "keyboard", "mouse", "raton", "soporte", "stand", "movil", "phone", "tablet", "gaming", "consola", "mini", "portatil", "laptop", "power bank", "bateria", "tracker", "localizador", "smart"],
+    problem: "La tecnología que realmente mejora el día a día suele ser cara, y las alternativas baratas decepcionan — la gente quiere el efecto 'premium' sin el precio premium",
+    secondaryProblems: [
+      "Los dispositivos de marca cuestan 3-5x más por el logo",
+      "Batería muerta y cables enredados arruinan el día",
+      "Configurar tecnología intimida a la mayoría",
+      "Lo barato suele romperse al mes: la desconfianza es alta",
+      "Cada problema cotidiano parece necesitar otro aparato más",
+    ],
+    benefits: [
+      "Especificaciones premium a una fracción del precio de las marcas",
+      "Funciona desde el primer minuto: cero configuración complicada",
+      "Diseño que aparenta el triple de su precio",
+      "Resuelve un problema diario concreto de forma tangible",
+      "Compacto y portátil: va contigo a todas partes",
+      "El regalo tecnológico perfecto que sorprende sin arruinarte",
+      "Calidad verificable en la primera demostración",
+    ],
+    desires: ["sentir que tiene lo último sin pagar de más", "resolver molestias diarias con un gadget", "sorprender con regalos tech", "productividad y comodidad", "descubrir el 'truco' que nadie conoce"],
+    fears: ["comprar tecnología que se rompe al mes", "pagar de más por marca", "estafas de productos falsos", "quedarse atrás tecnológicamente"],
+    audiences: [
+      { name: "Early adopters de presupuesto", description: "18-35 años, aman los gadgets, comparan specs, cazan ofertas", pains: ["precios de marcas premium", "reviews falsas", "FOMO tecnológico"] },
+      { name: "Profesionales prácticos", description: "25-45 años, buscan tecnología que ahorre tiempo en trabajo y viajes", pains: ["batería insuficiente", "setup incómodo para trabajar", "cables y adaptadores caóticos"] },
+      { name: "Compradores de regalos", description: "25-55 años, buscan el regalo que impresione con presupuesto limitado", pains: ["no saber qué regalar", "presupuesto ajustado", "miedo a regalar algo decepcionante"] },
+    ],
+    visualHooks: ["unboxing con reacción genuina", "demostración de la función estrella en 3 segundos", "comparación lado a lado con la marca cara", "test de estrés o durabilidad", "medición en cámara (velocidad, batería, sonido)", "el gadget resolviendo un momento cotidiano frustrante"],
+    environment: "un escritorio setup moderno con iluminación LED",
+    demoAction: "demostrar la función principal con una prueba medible en cámara",
+    wowMoment: "la demo en la que se ve que funciona igual o mejor que lo caro",
+    priceBand: [25, 99],
+    saturation: 4,
+    visualAppeal: 4,
+    explainability: 4,
+    ugcFit: 4,
+  },
+  {
+    id: "bebe",
+    name: "Bebés y maternidad",
+    keywords: ["bebe", "baby", "maternidad", "maternity", "panal", "diaper", "biberon", "bottle feeding", "chupete", "pacifier", "cuna", "crib", "cochecito", "stroller", "portabebe", "carrier baby", "lactancia", "embarazo", "pregnant", "montessori", "juguete bebe", "monitor bebe"],
+    problem: "Los padres primerizos viven agotados y con miedo constante de no hacerlo bien — cualquier cosa que dé minutos de descanso o tranquilidad vale oro",
+    secondaryProblems: [
+      "La falta de sueño convierte cada tarea en una montaña",
+      "Los productos de bebé de marca tienen precios abusivos",
+      "Salir de casa con un bebé es una operación logística",
+      "La ansiedad de si el bebé está bien no descansa nunca",
+      "Las casas se llenan de artículos de bebé enormes y de corta vida útil",
+    ],
+    benefits: [
+      "Devuelve minutos de descanso a padres agotados",
+      "Seguridad y tranquilidad verificables de un vistazo",
+      "Materiales seguros y suaves pensados para el bebé",
+      "Simplifica salidas, tomas o rutinas de sueño",
+      "Precio accesible frente a las marcas tradicionales",
+      "Diseño compacto que crece con el bebé",
+      "El regalo de baby shower que los padres agradecen de verdad",
+    ],
+    desires: ["dormir más", "un bebé tranquilo y seguro", "salir de casa sin caos", "sentirse buen padre/madre", "recuperar algo de tiempo propio"],
+    fears: ["que algo le pase al bebé", "productos con materiales dudosos", "gastar en cosas que el bebé rechaza", "ser juzgados como padres"],
+    audiences: [
+      { name: "Padres primerizos", description: "25-38 años, primer bebé, compran por ansiedad y por amor, muy influenciables por otros padres", pains: ["agotamiento extremo", "inseguridad constante", "presupuesto estirado"] },
+      { name: "Madres que vuelven al trabajo", description: "28-40 años, equilibran trabajo y crianza, pagan por practicidad", pains: ["cero tiempo", "culpa de madre trabajadora", "logística diaria imposible"] },
+      { name: "Regaladores (abuelos, amigos)", description: "25-60 años, buscan el regalo útil para baby showers y nacimientos", pains: ["no saber qué es útil de verdad", "querer quedar bien", "presupuesto definido"] },
+    ],
+    visualHooks: ["el bebé calmándose/durmiéndose en cámara", "POV de madre agotada a las 3am salvada por el producto", "antes y después de la rutina", "reacción del bebé probándolo", "checklist de salida de casa simplificada", "testimonio emocionado de madre real"],
+    environment: "una habitación de bebé cálida y ordenada",
+    demoAction: "mostrar la rutina real con bebé y cómo el producto la simplifica",
+    wowMoment: "el bebé tranquilo (o dormido) y el suspiro de alivio de los padres",
+    priceBand: [22, 79],
+    saturation: 2,
+    visualAppeal: 4,
+    explainability: 5,
+    ugcFit: 5,
+  },
+  {
+    id: "moda",
+    name: "Moda y accesorios",
+    keywords: ["moda", "fashion", "ropa", "clothing", "camiseta", "shirt", "vestido", "dress", "zapato", "shoe", "zapatilla", "sneaker", "bolso", "bag", "mochila", "backpack", "joyeria", "jewelry", "collar moda", "anillo", "ring", "pulsera", "bracelet", "gafas", "sunglasses", "lentes", "cinturon", "belt", "gorra", "cap", "leggings", "bra", "sujetador", "calcetines", "sock"],
+    problem: "Verse bien vestido parece exigir gastar mucho o sacrificar comodidad — la gente quiere piezas que resuelvan outfit, comodidad y confianza a la vez",
+    secondaryProblems: [
+      "La moda rápida de calidad decepcionante rompe la confianza",
+      "Lo cómodo no favorece y lo que favorece incomoda",
+      "Vestirse bien cada día exige tiempo y criterio que no todos tienen",
+      "Las tallas online son una lotería",
+      "Los accesorios de marca cuestan lo que un sueldo",
+    ],
+    benefits: [
+      "El efecto 'de dónde lo sacaste' garantizado",
+      "Comodidad de estar por casa con apariencia de producción",
+      "Combina con todo: multiplica outfits con una sola pieza",
+      "Calidad que se siente al tacto, muy por encima del precio",
+      "Favorece a todos los cuerpos y tallas",
+      "Eleva un outfit básico a uno memorable en segundos",
+      "La pieza que se convierte en tu firma personal",
+    ],
+    desires: ["recibir cumplidos", "verse bien en fotos", "comodidad sin sacrificar estilo", "renovar imagen sin gastar mucho", "encontrar su estilo personal"],
+    fears: ["que la talla no sea la esperada", "calidad de foto vs. realidad", "verse igual que todos", "gastar en algo que se pondrá una vez"],
+    audiences: [
+      { name: "Mujeres 18-35 trend-driven", description: "Siguen tendencias en TikTok/IG, compran lo viral, aman el try-on haul", pains: ["presupuesto vs. tendencias", "tallas inconsistentes", "armario lleno y 'nada que ponerse'"] },
+      { name: "Hombres práctico-estéticos", description: "20-40 años, quieren verse bien con mínimo esfuerzo y pocas piezas versátiles", pains: ["no saber combinar", "compras que fallan", "incomodidad de la ropa formal"] },
+      { name: "Compradoras de básicos premium", description: "25-45 años, buscan calidad y fit por encima de logos", pains: ["fast fashion que dura un lavado", "encontrar el fit perfecto", "pagar de más por marca"] },
+    ],
+    visualHooks: ["try-on haul con reacción", "transformación de outfit en un corte", "el mismo look con y sin la pieza", "prueba de calidad: tacto, costuras, lavado", "styling: 1 pieza, 5 outfits", "reacción de amigos/pareja al verlo puesto"],
+    environment: "un dormitorio aesthetic con espejo de cuerpo entero",
+    demoAction: "probarse la pieza y mostrar cómo transforma el outfit al instante",
+    wowMoment: "el giro frente al espejo donde el fit se ve perfecto",
+    priceBand: [24, 79],
+    saturation: 4,
+    visualAppeal: 5,
+    explainability: 5,
+    ugcFit: 5,
+  },
+  {
+    id: "salud",
+    name: "Salud y bienestar",
+    keywords: ["salud", "health", "bienestar", "wellness", "dolor", "pain", "sueno", "sleep", "dormir", "ansiedad", "anxiety", "estres", "stress", "vitamina", "vitamin", "suplemento", "supplement", "ortopedico", "orthopedic", "cervical", "lumbar", "rodilla", "knee", "plantilla", "insole", "masajeador", "terapia", "therapy", "acupresion", "magnesio", "melatonina", "digestion", "detox"],
+    problem: "Dolores, mal sueño y estrés crónico deterioran la vida diaria, y las soluciones médicas son caras, lentas o llenas de efectos secundarios",
+    secondaryProblems: [
+      "El dolor crónico se normaliza hasta que domina el día a día",
+      "Dormir mal arruina el rendimiento, el humor y la salud",
+      "Las citas médicas y fisioterapia cuestan tiempo y dinero",
+      "Los analgésicos tapan el síntoma sin resolver la causa",
+      "El estrés se acumula sin válvula de escape accesible",
+    ],
+    benefits: [
+      "Alivio perceptible desde el primer uso",
+      "Solución natural y no invasiva, sin depender de pastillas",
+      "Úsalo en casa, en la oficina o viajando: cuando lo necesites",
+      "Una fracción del coste de sesiones profesionales recurrentes",
+      "Mejora el sueño, y con él, todo lo demás",
+      "Diseño ergonómico validado por el uso diario",
+      "Recupera actividades que el dolor había robado",
+    ],
+    desires: ["vivir sin dolor", "dormir profundo otra vez", "energía para el día", "soluciones naturales", "no depender de medicamentos"],
+    fears: ["que el dolor sea permanente", "efectos secundarios de fármacos", "gastar en falsas promesas de bienestar", "envejecer con mala calidad de vida"],
+    audiences: [
+      { name: "Trabajadores con dolor crónico", description: "30-55 años, dolor de espalda/cuello/pies por trabajo, buscan alivio práctico diario", pains: ["dolor al despertar y al acostarse", "fisioterapia impagable a largo plazo", "rendimiento afectado"] },
+      { name: "Mal dormidores", description: "25-50 años, insomnio o sueño ligero, han probado de todo", pains: ["despertar cansados", "mente acelerada de noche", "dependencia de melatonina/pastillas"] },
+      { name: "Bienestar preventivo", description: "28-45 años, invierten en su salud antes de que duela, biohackers ligeros", pains: ["estrés acumulado", "falta de rituales de descompresión", "información contradictoria"] },
+    ],
+    visualHooks: ["la expresión de alivio en tiempo real", "explicación del mecanismo en 5 segundos con gráfico", "rutina de noche/mañana con el producto", "testimonio antes/después de X días", "comparación coste: fisio mensual vs. compra única", "demostración en el punto exacto de dolor"],
+    environment: "un dormitorio o salón tranquilo con luz cálida",
+    demoAction: "usarlo sobre la zona de dolor o en la rutina de sueño y narrar el efecto",
+    wowMoment: "el suspiro de alivio genuino que no se puede actuar",
+    priceBand: [29, 89],
+    saturation: 3,
+    visualAppeal: 3,
+    explainability: 4,
+    ugcFit: 5,
+  },
+  {
+    id: "auto",
+    name: "Auto y motos",
+    keywords: ["auto", "car", "coche", "carro", "moto", "motorcycle", "vehiculo", "vehicle", "limpieza coche", "detailing", "aspiradora coche", "organizador coche", "soporte movil coche", "phone mount", "cargador coche", "asiento", "seat", "volante", "steering", "parabrisas", "windshield", "faro", "headlight", "neumatico", "tire", "scratch", "rayon", "pulidor"],
+    problem: "Mantener el coche limpio, organizado y funcional cuesta tiempo y dinero — y los servicios profesionales cobran precios premium por soluciones simples",
+    secondaryProblems: [
+      "El detailing profesional cuesta lo que 10 productos DIY",
+      "El interior del coche se convierte en un almacén caótico",
+      "Rayones y desgaste devalúan el coche cada mes",
+      "Conducir incómodo o desorganizado es además peligroso",
+      "Los accesorios de coche buenos parecen caros o complicados de instalar",
+    ],
+    benefits: [
+      "Resultado profesional en tu garaje por una fracción del precio",
+      "Instalación o uso en minutos, sin herramientas ni mecánico",
+      "Protege el valor de reventa del coche",
+      "Interior organizado: todo a mano mientras conduces",
+      "Satisfacción visible e inmediata del antes y después",
+      "Compatible con prácticamente cualquier vehículo",
+    ],
+    desires: ["coche impecable sin pagar detailing", "conducción cómoda y ordenada", "mantener el valor del coche", "el toque que personaliza su coche", "resolver molestias diarias al volante"],
+    fears: ["dañar el coche con productos equivocados", "pagar de más en talleres", "accesorios que se caen o rompen", "perder valor de reventa"],
+    audiences: [
+      { name: "Orgullosos de su coche", description: "25-50 años, el coche es extensión personal, invierten en cuidarlo", pains: ["rayones que duelen en el alma", "precio del detailing", "productos que prometen y no pulen"] },
+      { name: "Conductores diarios prácticos", description: "25-55 años, horas al volante por trabajo o familia, buscan comodidad", pains: ["caos de objetos en el coche", "incomodidad en trayectos largos", "niños ensuciando todo"] },
+      { name: "Aficionados al DIY", description: "20-45 años, prefieren hacerlo ellos mismos y compartirlo", pains: ["herramientas caras", "tutoriales confusos", "resultados amateur"] },
+    ],
+    visualHooks: ["antes y después del detalle en el mismo plano", "instalación completa en 30 segundos", "prueba de resistencia en carretera", "transformación satisfying del interior", "comparación: taller $150 vs. esto $25", "el truco que los talleres no quieren que sepas"],
+    environment: "un garaje o el interior del coche a la luz del día",
+    demoAction: "aplicarlo/instalarlo en el coche y mostrar el resultado inmediato",
+    wowMoment: "el antes/después que parece de coche recién comprado",
+    priceBand: [19, 69],
+    saturation: 2,
+    visualAppeal: 4,
+    explainability: 4,
+    ugcFit: 4,
+  },
+  {
+    id: "oficina",
+    name: "Oficina y productividad",
+    keywords: ["oficina", "office", "escritorio", "desk", "productividad", "productivity", "ergonomico", "ergonomic", "silla", "chair", "monitor", "laptop stand", "soporte laptop", "organizador escritorio", "cuaderno", "notebook planner", "planner", "agenda", "boligrafo", "pen", "lampara escritorio", "reposamunecas", "estudio", "study", "concentracion", "focus"],
+    problem: "Trabajar o estudiar muchas horas en un setup incómodo destruye la concentración, la postura y la energía — y la gente lo sufre sin saber que tiene arreglo barato",
+    secondaryProblems: [
+      "El home office improvisado pasa factura al cuerpo",
+      "Las distracciones fragmentan el día y alargan la jornada",
+      "El desorden del escritorio es desorden mental",
+      "El equipamiento ergonómico 'oficial' cuesta cientos",
+      "Estudiar/trabajar cansa el doble cuando el entorno no acompaña",
+    ],
+    benefits: [
+      "Setup ergonómico profesional sin gastar cientos",
+      "Más foco: menos dolor y menos distracciones",
+      "Escritorio ordenado en segundos, mente despejada",
+      "Mejora visible en comodidad desde el primer día",
+      "Compacto y compatible con cualquier espacio, hasta el más pequeño",
+      "La mejora de quality-of-life con mejor ratio precio/impacto",
+    ],
+    desires: ["un setup que dé gusto usar", "trabajar sin dolor", "concentrarse más y terminar antes", "un escritorio digno de foto", "sentirse profesional"],
+    fears: ["dolores crónicos por mala postura", "productividad estancada", "gastar en ergonomía cara", "un setup que avergüenza en videollamadas"],
+    audiences: [
+      { name: "Teletrabajadores", description: "25-45 años, home office permanente o híbrido, sufren su setup improvisado", pains: ["dolor de cuello y muñecas", "fatiga a media tarde", "vergüenza de fondo en videollamadas"] },
+      { name: "Estudiantes", description: "16-28 años, largas horas de estudio, presupuesto mínimo", pains: ["concentración dispersa", "escritorios diminutos", "material caro"] },
+      { name: "Setup enthusiasts", description: "20-35 años, aman los escritorios aesthetic, consumen contenido de setups", pains: ["presupuesto vs. sueño de setup", "cables por todas partes", "encontrar piezas que combinen"] },
+    ],
+    visualHooks: ["transformación del setup en time-lapse", "antes y después del escritorio", "un día de trabajo con vs. sin el producto", "detalle satisfying de organización de cables", "setup tour con el producto como estrella", "prueba de postura con corrección visible"],
+    environment: "un escritorio de home office con luz natural",
+    demoAction: "integrarlo al setup y mostrar la mejora en comodidad u orden",
+    wowMoment: "el plano final del setup transformado",
+    priceBand: [22, 79],
+    saturation: 2,
+    visualAppeal: 4,
+    explainability: 4,
+    ugcFit: 4,
+  },
+  {
+    id: "general",
+    name: "Producto general",
+    keywords: [],
+    problem: "El público objetivo pierde tiempo, dinero o comodidad todos los días por un problema que asume como 'normal' — hasta que ve la solución en acción",
+    secondaryProblems: [
+      "Las soluciones tradicionales son caras, lentas o incómodas",
+      "La gente ni siquiera sabe que existe una alternativa mejor",
+      "Los productos genéricos decepcionan y generan desconfianza",
+      "El problema se acumula: cada día sin resolverlo cuesta más",
+    ],
+    benefits: [
+      "Resuelve el problema en una fracción del tiempo habitual",
+      "Precio accesible frente a las alternativas tradicionales",
+      "Fácil de usar desde el primer momento, sin curva de aprendizaje",
+      "Resultado visible e inmediato que se puede demostrar en cámara",
+      "Diseño compacto y duradero",
+      "El tipo de producto que se recomienda a amigos sin que pregunten",
+    ],
+    desires: ["ahorrar tiempo y dinero", "resolver el problema de una vez", "sentirse listo por descubrirlo antes que los demás", "comodidad diaria"],
+    fears: ["gastar en algo que no funciona", "caer en una estafa online", "seguir perdiendo tiempo con el método antiguo"],
+    audiences: [
+      { name: "Compradores impulsivos de TikTok", description: "18-34 años, descubren productos en el feed, compran lo que les sorprende en 30 segundos", pains: ["aburrimiento del contenido repetido", "desconfianza por compras fallidas", "querer lo viral antes que nadie"] },
+      { name: "Solucionadores prácticos", description: "25-50 años, buscan activamente resolver un problema concreto, comparan antes de comprar", pains: ["soluciones actuales insuficientes", "exceso de opciones", "miedo a elegir mal"] },
+      { name: "Compradores de regalos originales", description: "20-55 años, buscan sorprender con algo útil y diferente", pains: ["regalos repetidos y aburridos", "presupuesto definido", "poco tiempo para buscar"] },
+    ],
+    visualHooks: ["demostración del problema y solución en el mismo plano", "antes y después inmediato", "reacción genuina de la primera vez que se usa", "comparación con el método tradicional", "prueba extrema del producto", "unboxing con demostración en 10 segundos"],
+    environment: "un espacio cotidiano donde ocurre el problema",
+    demoAction: "provocar el problema en cámara y resolverlo con el producto al instante",
+    wowMoment: "el instante en que el problema desaparece en cámara",
+    priceBand: [19, 59],
+    saturation: 3,
+    visualAppeal: 4,
+    explainability: 4,
+    ugcFit: 4,
+  },
+];
+
+export function detectCategory(text: string): CategoryKB {
+  const norm = text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+  let best: CategoryKB | null = null;
+  let bestScore = 0;
+  for (const cat of CATEGORIES) {
+    let score = 0;
+    for (const kw of cat.keywords) {
+      if (norm.includes(kw)) score += kw.length; // palabras más largas = señal más fuerte
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = cat;
+    }
+  }
+  return best ?? CATEGORIES[CATEGORIES.length - 1];
+}
+
+export function getCategory(id: string): CategoryKB {
+  return CATEGORIES.find((c) => c.id === id) ?? CATEGORIES[CATEGORIES.length - 1];
+}

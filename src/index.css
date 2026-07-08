@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #08080d;
+  --color-surface: #10101a;
+  --color-surface2: #171725;
+  --color-line: rgba(255, 255, 255, 0.07);
+  --color-accent: #8b5cf6;
+  --color-accent2: #22d3ee;
+  --color-ok: #34d399;
+  --color-warn: #fbbf24;
+  --color-bad: #f87171;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: #e4e4ef;
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(139, 92, 246, 0.4);
+}
+
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: #26263a;
+  border-radius: 9px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #34344e;
+}
+
+.grad-text {
+  background: linear-gradient(100deg, #a78bfa, #22d3ee);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.grad-btn {
+  background: linear-gradient(100deg, #7c3aed, #0ea5e9);
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+.grad-btn:hover {
+  filter: brightness(1.15);
+}
+.grad-btn:active {
+  transform: scale(0.98);
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 16px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.fade-up {
+  animation: fadeUp 0.35s ease both;
+}
+
+@keyframes pulseGlow {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.pulse-glow {
+  animation: pulseGlow 1.6s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spinner {
+  animation: spin 0.9s linear infinite;
+}
