@@ -556,6 +556,53 @@ body::before {
 .btn-pie:hover { background: rgba(255, 179, 71, 0.2); box-shadow: 0 0 16px rgba(255, 179, 71, 0.25); }
 .pie-mensaje { font-family: var(--fuente-mono); font-size: 12px; color: var(--texto-tenue); }
 
+/* ── Intro musical (YouTube) ── */
+.youtube-oculto {
+  position: fixed;
+  bottom: -10px;
+  right: -10px;
+  width: 1px;
+  height: 1px;
+  opacity: 0.01;
+  pointer-events: none;
+}
+
+.barra-musica {
+  position: fixed;
+  bottom: 64px;
+  right: 18px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--fondo-panel);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: 4px;
+  box-shadow: 0 0 18px rgba(64, 208, 255, 0.2);
+  animation: aparecer 0.4s ease-out;
+}
+
+.musica-titulo {
+  font-family: var(--fuente-mono);
+  font-size: 12px;
+  color: var(--cian-suave);
+  letter-spacing: 1px;
+}
+
+.btn-musica {
+  width: 30px;
+  height: 28px;
+  background: rgba(64, 208, 255, 0.1);
+  border: 1px solid var(--borde);
+  border-radius: 3px;
+  color: var(--cian-suave);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-musica:hover { background: rgba(64, 208, 255, 0.24); }
+
 /* Responsive básico (pantallas medianas) */
 @media (max-width: 1200px) {
   body { overflow: auto; }

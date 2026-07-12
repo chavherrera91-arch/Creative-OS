@@ -114,8 +114,18 @@
   </footer>
 </div>
 
+<!-- Reproductor de YouTube (oculto: solo audio) + barra de música -->
+<div id="youtube-player" class="youtube-oculto"></div>
+<div id="barra-musica" class="barra-musica oculto">
+  <span id="musica-titulo" class="musica-titulo">♪ Intro</span>
+  <button id="btn-musica-pausa" class="btn-musica" title="Pausar / reanudar">⏸</button>
+  <button id="btn-musica-stop" class="btn-musica" title="Detener">⏹</button>
+  <button id="btn-musica-cambiar" class="btn-musica" title="Cambiar canción">✏</button>
+</div>
+
 <script src="js/audio.js"></script>
 <script src="js/reactor.js"></script>
+<script src="js/intro.js"></script>
 <script src="js/voice.js"></script>
 <script src="js/chat.js"></script>
 <script src="js/ui.js"></script>

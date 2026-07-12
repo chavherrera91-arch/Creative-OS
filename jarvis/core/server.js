@@ -155,9 +155,21 @@ async function enrutarAPI(req, res, ruta) {
 
   if (ruta === '/api/config' && metodo === 'GET') {
     // Solo la parte que el dashboard necesita (nunca secretos).
-    const { nombre, saludo, musicaBienvenida, voz, aplausos, dropMeta, ciudad } = CONFIG;
+    const { nombre, saludo, musicaIntro, musicaBienvenida, voz, aplausos, dropMeta, ciudad } = CONFIG;
     const estadoIA = await ia.info();
-    responderJSON(res, 200, { nombre, saludo, musicaBienvenida, voz, aplausos, dropMeta: { abrirAlActivar: dropMeta?.abrirAlActivar ?? true }, ciudad, ia: estadoIA });
+    responderJSON(res, 200, { nombre, saludo, musicaIntro, musicaBienvenida, voz, aplausos, dropMeta: { abrirAlActivar: dropMeta?.abrirAlActivar ?? true }, ciudad, ia: estadoIA });
+    return;
+  }
+
+  // Cambiar la canción de entrada desde el dashboard (persiste en config.json).
+  if (ruta === '/api/config/musica' && metodo === 'POST') {
+    const { url } = await cuerpoJSON(req);
+    CONFIG.musicaIntro = CONFIG.musicaIntro || { tipo: 'youtube', volumen: 80 };
+    CONFIG.musicaIntro.url = String(url || '').slice(0, 300);
+    const { escribirJSON } = require('./utils');
+    escribirJSON(path.join(RAIZ, 'config', 'config.json'), CONFIG);
+    logger.info('config', `Canción de entrada actualizada: ${CONFIG.musicaIntro.url || '(ninguna)'}`);
+    responderJSON(res, 200, { ok: true, musicaIntro: CONFIG.musicaIntro });
     return;
   }
 

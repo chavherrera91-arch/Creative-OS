@@ -9,7 +9,7 @@
     },
     "ollama": {
       "url": "http://127.0.0.1:11434",
-      "modelo": "llama3.1"
+      "modelo": "llama3.2:3b"
     }
   },
   "ciudad": "Ciudad de México",
@@ -17,6 +17,11 @@
   "longitud": -99.1332,
   "zonaHoraria": "America/Mexico_City",
   "saludo": "Bienvenido a casa, señor.",
+  "musicaIntro": {
+    "tipo": "youtube",
+    "url": "https://youtu.be/l482T0yNkeo",
+    "volumen": 80
+  },
   "musicaBienvenida": "assets/welcome.mp3",
   "voz": {
     "idioma": "es-MX",

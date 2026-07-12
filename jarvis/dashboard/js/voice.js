@@ -116,6 +116,7 @@ const JarvisVoz = (() => {
       const estabaEscuchando = deseaEscuchar;
       if (rec && escuchando) rec.stop();
       JarvisAudio.pausarDeteccion();
+      window.JarvisIntro?.duck(true); // baja la música mientras habla
       estado('hablando');
 
       const u = new SpeechSynthesisUtterance(texto);
@@ -131,6 +132,7 @@ const JarvisVoz = (() => {
       u.onboundary = () => window.JarvisReactor?.pulso(0.45);
 
       const terminar = () => {
+        window.JarvisIntro?.duck(false); // restaura el volumen de la música
         JarvisAudio.reanudarDeteccion();
         if (estabaEscuchando) {
           deseaEscuchar = true;

@@ -20,6 +20,7 @@
     CONFIG = await r.json();
     window.JARVIS_CONFIG = CONFIG;
     JarvisVoz.configurar(CONFIG.voz);
+    JarvisIntro.configurar(CONFIG.musicaIntro);
   }
 
   async function prepararSistemas() {
@@ -49,16 +50,22 @@
     if (activado) return;
     activado = true;
 
-    // 1) Música de bienvenida.
+    // 1) Canción de entrada: YouTube si está configurada; si falla
+    //    (sin internet, video no embebible), respaldo local.
     JarvisAudio.pausarDeteccion();
-    await JarvisAudio.bienvenida(CONFIG.musicaBienvenida);
+    const musicaYT = await JarvisIntro.reproducir();
+    if (!musicaYT) await JarvisAudio.bienvenida(CONFIG.musicaBienvenida);
 
-    // 2) Mostrar el centro de mando.
+    // 2) Mostrar el centro de mando (la canción sigue de fondo).
     $('standby').classList.add('oculto');
     $('hud').classList.remove('oculto');
     JarvisUI.consola(`Activación por ${origen === 'aplausos' ? 'doble aplauso' : 'botón'}.`, 'ok');
+    if (musicaYT) {
+      JarvisUI.consola('♪ Canción de entrada sonando (controles abajo a la derecha).', 'accion');
+      await new Promise((r) => setTimeout(r, 3500)); // deja respirar el riff
+    }
 
-    // 3) Saludo por voz.
+    // 3) Saludo por voz (la música baja sola mientras Jarvis habla).
     await JarvisVoz.decir(CONFIG.saludo || 'Bienvenido a casa, señor.');
 
     // 4) Abrir Drop-Meta.
@@ -315,6 +322,10 @@
         $('btn-mic').classList.add('activo');
       }
     });
+
+    $('btn-musica-pausa').addEventListener('click', () => JarvisIntro.alternarPausa());
+    $('btn-musica-stop').addEventListener('click', () => JarvisIntro.detener());
+    $('btn-musica-cambiar').addEventListener('click', () => JarvisIntro.cambiarCancion());
 
     $('btn-nueva-tarea').addEventListener('click', async () => {
       const titulo = prompt('Nueva tarea:');

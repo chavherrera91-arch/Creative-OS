@@ -88,7 +88,8 @@ calidad depende del modelo que descargues.
 | `modelo` | Modelo de Claude (`claude-opus-4-8`) |
 | `ciudad`, `latitud`, `longitud`, `zonaHoraria` | Clima y reloj |
 | `saludo` | Frase que dice al activarse |
-| `musicaBienvenida` | Ruta del audio de bienvenida (pon tu `welcome.mp3` en `dashboard/assets/`) |
+| `musicaIntro` | Canción de entrada de YouTube: `{ tipo: "youtube", url, volumen }`. Se reproduce con el reproductor oficial embebido al activar; controles flotantes para pausar ⏸, detener ⏹ o cambiarla ✏ (el cambio se guarda solo). La música baja automáticamente cuando Jarvis habla. |
+| `musicaBienvenida` | Respaldo local si YouTube falla o no hay internet (pon tu `welcome.mp3` en `dashboard/assets/`); si tampoco existe, suena la fanfarria sintetizada |
 | `voz` | Idioma, velocidad, tono y voz preferida del TTS |
 | `aplausos.umbral` | Sensibilidad del detector (baja a 0.25 si no te detecta; sube a 0.4 si se activa solo) |
 | `dropMeta.abrirAlActivar` | Abrir Drop-Meta al despertar |
@@ -261,5 +262,6 @@ un CSV exportado de Meta con `leer_archivo`.
 | No me entiende | El STT necesita internet (el del navegador es un servicio en línea). Revisa el chip RED. |
 | «SIN IA» en el header | Ni Ollama corriendo ni clave de Claude. Instala Ollama (`ollama pull llama3.1`) o agrega la clave en `secrets.json`. |
 | Ollama responde lento | Prueba un modelo más pequeño (`llama3.2:3b`) en `ia.ollama.modelo`, o cierra apps que usen GPU/RAM. |
-| Ollama no usa herramientas | Algunos modelos no soportan *tools*; Jarvis reintenta sin ellas automáticamente. Usa `llama3.1`, `qwen2.5` o `mistral-nemo` para tener herramientas. |
+| Ollama no usa herramientas | Algunos modelos no soportan *tools*; Jarvis reintenta sin ellas automáticamente. Usa `llama3.2:3b`, `llama3.1`, `qwen2.5` o `mistral-nemo` para tener herramientas. |
+| La canción de entrada no suena | Necesita internet y que el video permita embeberse. Si falla, suena el respaldo local automáticamente. Cambia la canción con el botón ✏ de la barra de música. |
 | Puerto ocupado | Cambia `puerto` en config.json o `JARVIS_PORT=8300` como variable de entorno. |
