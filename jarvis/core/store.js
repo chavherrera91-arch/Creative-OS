@@ -58,15 +58,25 @@ function borrarTarea(id) {
 }
 
 // ---------- Notificaciones ----------
-// { id, texto, nivel: info|exito|alerta, leida, creada }
+// { id, texto, nivel: info|exito|alerta, leida, creada,
+//   hablar (el dashboard la lee en voz alta una vez),
+//   detalle (texto largo opcional, p. ej. el cuerpo de un reporte) }
 
 function listarNotificaciones() {
   return leerJSON(RUTA_NOTIFICACIONES, []);
 }
 
-function notificar(texto, nivel = 'info') {
+function notificar(texto, nivel = 'info', extras = {}) {
   const lista = listarNotificaciones();
-  lista.unshift({ id: idCorto(), texto, nivel, leida: false, creada: ahora() });
+  lista.unshift({
+    id: idCorto(),
+    texto,
+    nivel,
+    leida: false,
+    creada: ahora(),
+    ...(extras.hablar ? { hablar: true } : {}),
+    ...(extras.detalle ? { detalle: String(extras.detalle) } : {}),
+  });
   escribirJSON(RUTA_NOTIFICACIONES, lista.slice(0, 100));
   return lista[0];
 }

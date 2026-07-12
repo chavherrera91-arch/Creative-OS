@@ -232,9 +232,29 @@
     }
   }
 
+  // Notificaciones con hablar=true se leen en voz alta UNA vez
+  // (el programador marca así el reporte diario y las emergencias).
+  const habladas = new Set(JSON.parse(localStorage.getItem('jarvis_habladas') || '[]'));
+
   async function refrescarNotificaciones() {
     try {
-      JarvisUI.pintarNotificaciones(await (await fetch('/api/notifications')).json());
+      const lista = await (await fetch('/api/notifications')).json();
+      JarvisUI.pintarNotificaciones(lista);
+
+      if (activado) {
+        const pendientesVoz = lista.filter((n) => n.hablar && !n.leida && !habladas.has(n.id)).reverse();
+        for (const n of pendientesVoz) {
+          habladas.add(n.id);
+          JarvisUI.consola(`🔔 Anuncio: ${n.texto}`, 'accion');
+          // El detalle (p. ej. el reporte CEO completo) se muestra en el chat;
+          // por voz solo el titular + primeras líneas del detalle.
+          if (n.detalle) JarvisUI.agregarMensaje('jarvis', n.detalle, 'programador');
+          await JarvisVoz.decir(recortarParaVoz(n.detalle ? n.detalle : n.texto));
+        }
+        if (pendientesVoz.length) {
+          localStorage.setItem('jarvis_habladas', JSON.stringify([...habladas].slice(-100)));
+        }
+      }
     } catch { /* siguiente ciclo */ }
   }
 

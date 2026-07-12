@@ -34,5 +34,19 @@
     "ruta": "../drop-meta",
     "abrirAlActivar": true
   },
+  "programador": {
+    "habilitado": true,
+    "tareas": [
+      {
+        "nombre": "reporte-ceo",
+        "tipo": "automatizacion",
+        "objetivo": "reporte-ceo",
+        "hora": "08:00",
+        "notificar": true,
+        "hablar": true,
+        "documento": true
+      }
+    ]
+  },
   "historialMaximo": 200
 }

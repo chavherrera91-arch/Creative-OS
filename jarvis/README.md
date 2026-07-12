@@ -158,7 +158,66 @@ directo o deja que el CEO coordine.
 **Memoria**: pide «guarda en memoria que…» y el agente escribirá en el archivo
 correcto. También puedes editar los `.md` de `jarvis/memory/` a mano.
 
-## 5. Mantenimiento
+## 5. Fase 2 · Operaciones automáticas
+
+### Daily CEO Report (8:00 AM)
+
+El **programador** interno (`core/scheduler.js`) ejecuta cada mañana la
+automatización `reporte-ceo`: ventas de Shopify (si está conectado), tareas
+pendientes y de hoy, objetivos vigentes, candidatos de producto y foco
+sugerido del día. El reporte se guarda en `docs/generados/`, aparece como
+notificación y **Jarvis lo lee en voz alta** si el dashboard está activo.
+
+La hora y las tareas programadas se editan en `config.json` → `programador`.
+Puedes programar cualquier script de `automations/` con el mismo formato.
+
+### Conexión con Shopify (opcional, solo lectura)
+
+1. En Shopify: Configuración → Apps y canales de venta → Desarrollar apps →
+   crear app → Admin API → permisos `read_orders` y `read_products` → instalar
+   y copiar el token `shpat_...`.
+2. En `config/secrets.json` agrega el bloque `shopify` (ver
+   `secrets.example.json`).
+
+Con eso se activan: ventas reales en el reporte diario, la vigilancia de
+inventario, y las herramientas `ventas_de_hoy`, `pedidos_recientes` e
+`inventario_agotado` para el CEO, el Data Analyst y el Automation Agent
+(«Jarvis, ¿cuánto vendimos hoy?»).
+
+### Agente de emergencias (vigilancia)
+
+Cada 5 minutos Jarvis comprueba: Drop-Meta presente, Shopify accesible y
+productos sin inventario. Cada condición avisa **una sola vez** al fallar
+(notificación de alerta + voz) y otra al recuperarse. Las automatizaciones
+programadas que fallen también disparan alerta.
+
+### Product Lab (un comando → dossier completo)
+
+Dile al CEO: **«Jarvis, analiza este producto: <producto>»** (o «haz el
+laboratorio de X»). La herramienta `laboratorio_producto` encadena:
+
+1. **Market Analyst** — viabilidad, competencia, veredicto.
+2. **Creative Director** — 5 hooks + 2 conceptos de video.
+3. **Copywriter** — página de producto completa.
+4. **Media Buyer** — campaña Meta de validación (50 USD/día + kill rules).
+
+y termina con: dossier en `docs/generados/`, candidato anotado en
+`memory/productos.md` y tarea «Revisar dossier…» de prioridad alta.
+Requiere motor de IA activo (Ollama o Claude); tarda varios minutos con
+modelos locales — el progreso se ve en la Consola de Acciones.
+
+### Webhooks para n8n (u otros sistemas)
+
+Jarvis expone `POST /api/hooks/<nombre>` con cuerpo
+`{ "texto": "...", "nivel": "info|exito|alerta", "hablar": true }` →
+notificación en el dashboard (y por voz si `hablar`). En n8n basta un nodo
+**HTTP Request** apuntando a `http://localhost:8200/api/hooks/meta-ads`, por
+ejemplo, para que cualquier flujo externo le hable a Jarvis. Los flujos que
+requieren APIs con app aprobada (Meta Ads, TikTok) conviene montarlos en n8n
+cuando tengas esas credenciales; mientras tanto el Media Buyer puede analizar
+un CSV exportado de Meta con `leer_archivo`.
+
+## 6. Mantenimiento
 
 | Tarea | Cómo |
 |---|---|
@@ -170,7 +229,7 @@ correcto. También puedes editar los `.md` de `jarvis/memory/` a mano.
 | Añadir agente | Añadir entrada en `jarvis/agents/agents.js` (id, prompt, familias de herramientas) |
 | Añadir herramienta | Definición + implementación en `jarvis/tools/tools.js`, asignar familia a los agentes |
 
-## 6. Mejoras futuras (hoja de ruta)
+## 7. Mejoras futuras (hoja de ruta)
 
 **Corto plazo**
 - [ ] Panel de edición de memoria dentro del dashboard (la API `PUT /api/memory/:archivo` ya existe).
@@ -179,10 +238,12 @@ correcto. También puedes editar los `.md` de `jarvis/memory/` a mano.
 - [ ] Recordatorios con hora que disparen TTS («recuérdame a las 5…»).
 
 **Medio plazo**
+- [x] Integración con Shopify (ventas, pedidos, inventario) — hecho en Fase 2.
+- [x] Programador de tareas + Daily CEO Report + agente de emergencias — hecho en Fase 2.
+- [x] Product Lab (pipeline idea → dossier completo) — hecho en Fase 2.
 - [ ] Búsqueda web real para el Research Agent (herramienta `web_search` del lado del servidor con la API de Anthropic).
-- [ ] Integración con Shopify (ya hay conector MCP disponible en tu entorno) para que Data Analyst lea pedidos y métricas reales.
-- [ ] Lectura de métricas de Meta Ads (CSV importado o API) para kill-rules automáticas.
-- [ ] Modo «trabajo largo»: encargos que corren minutos y notifican al terminar (la base SSE ya lo soporta).
+- [ ] Meta Ads Monitor con API oficial (requiere app aprobada por Meta); mientras tanto, análisis de CSV exportado.
+- [ ] n8n como orquestador externo usando los webhooks `/api/hooks/*` (Telegram/Discord, correo, noticias).
 
 **Largo plazo**
 - [ ] Migrar agentes a Claude Agent SDK o Managed Agents para sub-agentes con contexto propio y ejecución más larga.
@@ -190,7 +251,7 @@ correcto. También puedes editar los `.md` de `jarvis/memory/` a mano.
 - [ ] Arranque automático con Windows (Tarea programada que lance el servidor al iniciar sesión).
 - [ ] App de escritorio (empaquetar con Electron o usar modo kiosco de Edge: `msedge --app=http://localhost:8200`).
 
-## 7. Solución de problemas
+## 8. Solución de problemas
 
 | Síntoma | Causa probable / arreglo |
 |---|---|

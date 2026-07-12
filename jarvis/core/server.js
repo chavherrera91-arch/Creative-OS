@@ -27,6 +27,7 @@ const store = require('./store');
 const logger = require('./logger');
 const ia = require('./ia');
 const localbrain = require('./localbrain');
+const scheduler = require('./scheduler');
 const agentes = require('../agents/agents');
 const herramientas = require('../tools/tools');
 const clima = require('../integrations/weather');
@@ -71,6 +72,7 @@ async function apiEstado(res) {
     dropMeta: { disponible: fs.existsSync(path.join(DIR_DROPMETA, 'index.html')), url: '/drop-meta/' },
     agentes: agentes.listar().length,
     automatizaciones: herramientas.listarAutomatizaciones(),
+    programador: scheduler.resumen(),
   });
 }
 
@@ -241,6 +243,21 @@ async function enrutarAPI(req, res, ruta) {
     return;
   }
 
+  // --- webhooks entrantes (para n8n u otros sistemas externos) ---
+  // POST /api/hooks/<nombre>  { "texto": "...", "nivel": "info|exito|alerta", "hablar": true }
+  // Publica una notificación en el dashboard (y opcionalmente la lee en voz).
+  const hookMatch = ruta.match(/^\/api\/hooks\/([a-z0-9\-_]+)$/i);
+  if (hookMatch && metodo === 'POST') {
+    const nombre = hookMatch[1];
+    const datos = await cuerpoJSON(req);
+    const texto = String(datos.texto || `Webhook "${nombre}" recibido`).slice(0, 300);
+    const nivel = ['info', 'exito', 'alerta'].includes(datos.nivel) ? datos.nivel : 'info';
+    store.notificar(`🔗 [${nombre}] ${texto}`, nivel, { hablar: Boolean(datos.hablar) });
+    logger.info('webhooks', `${nombre}: ${texto}`);
+    responderJSON(res, 200, { ok: true, hook: nombre });
+    return;
+  }
+
   responderJSON(res, 404, { error: `Sin ruta: ${metodo} ${ruta}` });
 }
 
@@ -282,6 +299,7 @@ const servidor = http.createServer(async (req, res) => {
 });
 
 memoria.asegurarMemoria();
+scheduler.iniciar();
 servidor.listen(PUERTO, async () => {
   logger.info('servidor', `Jarvis en línea → http://localhost:${PUERTO}`);
   logger.info('servidor', `Drop-Meta servido en → http://localhost:${PUERTO}/drop-meta/`);

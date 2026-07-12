@@ -13,6 +13,7 @@ const { RAIZ, RAIZ_PROYECTO, rutaSegura, ahora } = require('../core/utils');
 const memoria = require('../core/memory');
 const store = require('../core/store');
 const logger = require('../core/logger');
+const shopify = require('../integrations/shopify');
 
 const DIR_DOCS = path.join(RAIZ, 'docs', 'generados');
 const DIR_AUTOMATIZACIONES = path.join(RAIZ, 'automations');
@@ -148,6 +149,45 @@ const FAMILIAS = {
       },
     },
   ],
+  shopify: [
+    {
+      name: 'ventas_de_hoy',
+      description:
+        'Consulta en Shopify los pedidos y el total facturado de hoy. Úsala cuando pregunten por ventas, ingresos o pedidos del día.',
+      input_schema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'pedidos_recientes',
+      description: 'Lista los últimos pedidos de la tienda Shopify (número, total y estado de pago).',
+      input_schema: {
+        type: 'object',
+        properties: {
+          cantidad: { type: 'integer', description: 'Cuántos pedidos (máx 20, por defecto 5)' },
+        },
+      },
+    },
+    {
+      name: 'inventario_agotado',
+      description: 'Lista los productos/variantes de Shopify con inventario en cero o negativo.',
+      input_schema: { type: 'object', properties: {} },
+    },
+  ],
+  laboratorio: [
+    {
+      name: 'laboratorio_producto',
+      description:
+        'Product Lab: pipeline completo para evaluar un producto candidato con UN solo comando. Delega en cadena: Market Analyst (viabilidad) → Creative Director (hooks) → Copywriter (página) → Media Buyer (campaña), compila un dossier en docs/generados, registra el candidato en la memoria y crea la tarea de revisión. Úsala cuando pidan "analiza este producto" o "haz el laboratorio de X".',
+      input_schema: {
+        type: 'object',
+        properties: {
+          producto: { type: 'string', description: 'Nombre/descripción corta del producto' },
+          costo_estimado: { type: 'string', description: 'Costo unitario estimado si se conoce (opcional)' },
+          notas: { type: 'string', description: 'Contexto extra: público, ángulo, dónde se vio (opcional)' },
+        },
+        required: ['producto'],
+      },
+    },
+  ],
 };
 
 /** Devuelve las definiciones de herramientas para un agente. */
@@ -278,6 +318,70 @@ async function ejecutar(nombre, entrada, { delegar } = {}) {
     case 'consultar_agente': {
       if (!delegar) return 'La delegación no está disponible en este contexto.';
       return delegar(entrada.agente, entrada.encargo);
+    }
+
+    case 'ventas_de_hoy': {
+      if (!shopify.disponible()) return 'Shopify no está configurado (secrets.json → shopify).';
+      const v = await shopify.ventasDeHoy();
+      return `Hoy: ${v.pedidos} pedido(s), ${v.total} ${v.moneda} facturados.`;
+    }
+
+    case 'pedidos_recientes': {
+      if (!shopify.disponible()) return 'Shopify no está configurado (secrets.json → shopify).';
+      const pedidos = await shopify.pedidosRecientes(entrada.cantidad || 5);
+      if (!pedidos.length) return 'No hay pedidos registrados.';
+      return pedidos
+        .map((p) => `${p.numero}: ${p.total} ${p.moneda} (${p.estado}) — ${p.creado.slice(0, 16).replace('T', ' ')}`)
+        .join('\n');
+    }
+
+    case 'inventario_agotado': {
+      if (!shopify.disponible()) return 'Shopify no está configurado (secrets.json → shopify).';
+      const agotados = await shopify.productosSinStock();
+      if (!agotados.length) return 'Todo el inventario tiene existencias.';
+      return `Sin stock (${agotados.length}):\n` + agotados.map((p) => `- ${p.titulo} (${p.cantidad})`).join('\n');
+    }
+
+    case 'laboratorio_producto': {
+      if (!delegar) return 'El laboratorio requiere delegación: pídeselo al CEO.';
+      const producto = entrada.producto;
+      const contexto = [
+        entrada.costo_estimado ? `Costo unitario estimado: ${entrada.costo_estimado}.` : '',
+        entrada.notas ? `Contexto: ${entrada.notas}.` : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      const pasos = [
+        ['market_analyst', 'Análisis de mercado',
+          `Evalúa la viabilidad de "${producto}" para dropshipping. ${contexto} Cubre: demanda, competencia, precios de mercado, diferenciación posible, riesgos y veredicto (entrar / no entrar / entrar con condiciones).`],
+        ['creative_director', 'Hooks y conceptos',
+          `Genera 5 hooks numerados y 2 conceptos de video (formato Reels/TikTok) para "${producto}". ${contexto}`],
+        ['copywriter', 'Página de producto',
+          `Escribe la página de producto completa de "${producto}": titular de beneficio, subtítulo, bullets, manejo de objeciones, garantía y CTA. ${contexto}`],
+        ['media_buyer', 'Campaña inicial',
+          `Diseña la campaña Meta Ads de validación para "${producto}" con 50 USD/día: estructura, públicos, evento de optimización y kill rules. ${contexto}`],
+      ];
+
+      const secciones = [`# Dossier · ${producto}`, contexto ? `> ${contexto}` : ''];
+      for (const [agenteId, titulo, encargo] of pasos) {
+        const resultado = await delegar(agenteId, encargo);
+        secciones.push(`\n## ${titulo}\n\n${resultado}`);
+      }
+
+      const rutaDoc = await ejecutar(
+        'crear_documento',
+        { nombre: `dossier-${producto.slice(0, 40)}`, contenido: secciones.join('\n') },
+        {},
+      );
+      memoria.anexar(
+        'productos',
+        `**Candidato (Product Lab):** ${producto}. ${contexto} Dossier: ${String(rutaDoc).replace('Documento creado en ', '')}`,
+      );
+      store.crearTarea({ titulo: `Revisar dossier de ${producto}`, prioridad: 'alta' });
+      store.notificar(`🧪 Product Lab completado: ${producto}`, 'exito');
+
+      return `Laboratorio completado para "${producto}". ${rutaDoc}. Candidato registrado en memoria y tarea de revisión creada. Resume al operador el veredicto del análisis en 2-3 frases.`;
     }
 
     default:

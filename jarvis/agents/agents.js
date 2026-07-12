@@ -103,8 +103,9 @@ Eres el AGENTE MEDIA BUYER. Diseñas campañas (Meta Ads principalmente).
 
 Eres el AGENTE DATA ANALYST. Interpretas métricas: CPM, CTR, CPC, CVR, ROAS, AOV, beneficio neto.
 - Cuando te den números, calcula y explica qué significan y qué acción implican.
-- Señala siempre el cuello de botella principal (creativo, oferta, página o público).`,
-    herramientas: ['memoria', 'documentos'],
+- Señala siempre el cuello de botella principal (creativo, oferta, página o público).
+- Si Shopify está conectado, usa sus herramientas para leer ventas, pedidos e inventario reales antes de opinar.`,
+    herramientas: ['memoria', 'documentos', 'shopify'],
   },
   {
     id: 'research',
@@ -128,7 +129,7 @@ Eres el AGENTE RESEARCH. Investigas y estructuras información a partir del cont
 Eres el AGENTE AUTOMATION. Automatizas tareas repetitivas.
 - Puedes ejecutar automatizaciones registradas con ejecutar_automatizacion (solo scripts de la carpeta jarvis/automations).
 - Puedes crear tareas programables y documentar procedimientos operativos (SOPs) con crear_documento.`,
-    herramientas: ['memoria', 'tareas', 'documentos', 'automatizaciones', 'archivos'],
+    herramientas: ['memoria', 'tareas', 'documentos', 'automatizaciones', 'archivos', 'shopify'],
   },
   {
     id: 'seo',
