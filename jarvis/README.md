@@ -1,0 +1,204 @@
+# JARVIS · Director de operaciones para dropshipping
+
+Asistente personal local inspirado en Jarvis: se activa con **dos aplausos**,
+conversa **por voz en español**, tiene **memoria permanente en archivos**,
+coordina **10 agentes especializados** con Claude (Opus 4.8) y abre
+**Drop-Meta** automáticamente al despertar.
+
+```
+Dashboard  →  http://localhost:8200
+Drop-Meta  →  http://localhost:8200/drop-meta/
+```
+
+---
+
+## 1. Instalación
+
+No hay nada que instalar: Jarvis usa el Node.js portable que ya existe en tu
+equipo y **cero dependencias externas** propias (el SDK de Anthropic ya está en
+`node_modules/` de Creative OS).
+
+**Arrancar el servidor:**
+
+```powershell
+& "C:\Users\PC\AppData\Local\nodejs-portable\node.exe" "jarvis\core\server.js"
+```
+
+(o desde Claude Code: el servidor `jarvis` ya está registrado en
+`.claude/launch.json`).
+
+**Abrir el dashboard:** navega a `http://localhost:8200` en **Microsoft Edge**
+(recomendado: tiene las mejores voces neuronales en español y el mejor
+reconocimiento de voz) o Chrome.
+
+**Primer uso:**
+
+1. Pulsa **INICIAR SISTEMAS** (el navegador exige un clic antes de dar acceso
+   a micrófono y audio — es una regla de seguridad de todos los navegadores).
+2. Acepta el permiso de micrófono.
+3. Da **dos aplausos**. Jarvis reproduce la música de bienvenida, dice
+   *"Bienvenido a casa, señor."*, abre Drop-Meta y queda escuchando.
+
+## 2. Configuración
+
+### Motor de IA: Ollama por defecto, Claude opcional (el "interruptor")
+
+Jarvis funciona con **dos proveedores de IA intercambiables** sin tocar código.
+La selección vive en `config.json` → `ia.proveedor`:
+
+| Valor | Comportamiento |
+|---|---|
+| `"auto"` (por defecto) | Si hay clave de Claude en `secrets.json` → usa **Claude**. Si no hay clave → usa **Ollama** local automáticamente. |
+| `"ollama"` | Fuerza Ollama aunque exista clave. |
+| `"claude"` | Fuerza Claude (requiere clave). |
+
+**Opción A — Ollama (gratis, local, privado):**
+
+1. Instala Ollama desde [ollama.com](https://ollama.com) (Windows).
+2. Descarga un modelo: `ollama pull llama3.1` (o `qwen2.5:14b`, `mistral`…).
+3. Listo — Jarvis lo detecta solo en `http://127.0.0.1:11434`. El modelo se
+   cambia en `config.json` → `ia.ollama.modelo`.
+
+**Opción B — Claude (máxima calidad, de pago):**
+
+```powershell
+Copy-Item jarvis\config\secrets.example.json jarvis\config\secrets.json
+# edita secrets.json y pega tu clave sk-ant-...
+```
+
+`secrets.json` está en `.gitignore`: nunca se sube al repositorio. También
+sirve la variable de entorno `ANTHROPIC_API_KEY`. En modo `auto`, **agregar la
+clave es todo lo que hace falta para subir de Ollama a Claude** — y borrarla
+te devuelve a Ollama. Los agentes, la memoria, la voz y el dashboard funcionan
+igual con ambos.
+
+**Sin ninguno de los dos**, Jarvis sigue operativo en modo básico: hora,
+fecha, clima, tareas, Drop-Meta y lectura de memoria.
+
+Diferencias prácticas entre proveedores: con Claude hay *streaming* palabra a
+palabra y *prompt caching* de la memoria; con Ollama la respuesta llega en un
+bloque (el tool calling en streaming es frágil entre versiones de Ollama) y la
+calidad depende del modelo que descargues.
+
+### `jarvis/config/config.json`
+
+| Clave | Qué controla |
+|---|---|
+| `puerto` | Puerto del servidor (8200) |
+| `modelo` | Modelo de Claude (`claude-opus-4-8`) |
+| `ciudad`, `latitud`, `longitud`, `zonaHoraria` | Clima y reloj |
+| `saludo` | Frase que dice al activarse |
+| `musicaBienvenida` | Ruta del audio de bienvenida (pon tu `welcome.mp3` en `dashboard/assets/`) |
+| `voz` | Idioma, velocidad, tono y voz preferida del TTS |
+| `aplausos.umbral` | Sensibilidad del detector (baja a 0.25 si no te detecta; sube a 0.4 si se activa solo) |
+| `dropMeta.abrirAlActivar` | Abrir Drop-Meta al despertar |
+
+## 3. Arquitectura
+
+```
+jarvis/
+├── core/            Núcleo del servidor
+│   ├── server.js      HTTP + API + estáticos (dashboard y Drop-Meta)
+│   ├── ia.js          Fachada de IA: interruptor de proveedor, agentes, delegación
+│   ├── claude.js      Proveedor Claude (SDK oficial, streaming, prompt caching)
+│   ├── ollama.js      Proveedor Ollama (local, sin dependencias, tool calling)
+│   ├── localbrain.js  Motor local sin IA (intenciones en español)
+│   ├── memory.js      Memoria permanente (Markdown)
+│   ├── store.js       Tareas, notificaciones, historial (JSON)
+│   ├── logger.js      Logs diarios (JSON Lines)
+│   └── utils.js       Helpers compartidos
+├── memory/          usuario.md, negocio.md, objetivos.md, estrategias.md,
+│                    proveedores.md, productos.md, anuncios.md, errores.md,
+│                    aprendizajes.md  ← Jarvis los lee SIEMPRE antes de responder
+├── agents/          10 agentes (CEO coordina y delega en los otros 9)
+├── tools/           Herramientas de los agentes (memoria, tareas, documentos,
+│                    archivos, automatizaciones, notificaciones)
+├── automations/     Scripts ejecutables por el Automation Agent
+├── integrations/    Clima (Open-Meteo, sin clave)
+├── dashboard/       Interfaz HUD (HTML/CSS/JS puro, sin build)
+├── config/          config.json + secrets.json (ignorado por git)
+├── data/            Datos generados (ignorado por git)
+├── docs/generados/  Documentos que crean los agentes
+└── logs/            Un log por día
+```
+
+**Decisiones técnicas y por qué:**
+
+- **Node puro sin dependencias** — tu Node es portable y la carpeta vive en
+  OneDrive; evitar `npm install` elimina la mayor fuente de fallos y hace el
+  proyecto trivial de mover/respaldar. El único paquete usado
+  (`@anthropic-ai/sdk`) ya estaba instalado en la raíz.
+- **Voz en el navegador (Web Speech API)** — en Windows, Edge trae voces
+  neuronales en español y STT de alta calidad sin instalar nada ni pagar API
+  de voz. Alternativas (Whisper local, Azure TTS) quedan como mejora futura.
+- **Memoria en Markdown** — legible, editable a mano, versionable con git, y
+  se inyecta al modelo con *prompt caching* (solo se re-procesa si cambió).
+- **Agentes = prompts + herramientas, no procesos** — el CEO delega mediante
+  la herramienta `consultar_agente`; simple, depurable y barato. Escalar a
+  sub-agentes reales (Claude Agent SDK) es una mejora futura documentada.
+- **JSON como almacenamiento** — para volúmenes de asistente personal, una
+  base de datos sería complejidad sin beneficio. El módulo `store.js` aísla el
+  acceso: si algún día hace falta SQLite, se cambia en un solo archivo.
+
+## 4. Uso diario
+
+**Por voz** (tras activar): habla con naturalidad.
+
+- «¿Qué hora es?» · «¿Qué día es hoy?» · «¿Cómo está el clima?»
+- «Agrega tarea revisar creativos de LUMBRA» · «¿Qué tengo pendiente?» ·
+  «Completa tarea revisar creativos»
+- «Abre Drop-Meta» · «Estado del sistema»
+- Con IA: «Analiza si conviene subir el precio de la lámpara a 45 dólares»,
+  «Dame cinco hooks para un video de TikTok del candle warmer», «Escribe la
+  página de producto», «Diseña la campaña de Meta con 50 dólares diarios»…
+
+**Por texto**: el campo inferior del Panel de IA. El selector elige agente
+directo o deja que el CEO coordine.
+
+**Memoria**: pide «guarda en memoria que…» y el agente escribirá en el archivo
+correcto. También puedes editar los `.md` de `jarvis/memory/` a mano.
+
+## 5. Mantenimiento
+
+| Tarea | Cómo |
+|---|---|
+| Ver logs | `jarvis/logs/jarvis-AAAA-MM-DD.log` (JSON Lines) |
+| Respaldar | Copiar `jarvis/memory/`, `jarvis/data/` y `jarvis/config/` |
+| Limpiar historial | Borrar `jarvis/data/history.json` |
+| Reiniciar | Cortar el proceso de Node y volver a arrancar (los datos persisten) |
+| Añadir automatización | Crear `jarvis/automations/mi-script.js` (Node); el Automation Agent la puede ejecutar por nombre |
+| Añadir agente | Añadir entrada en `jarvis/agents/agents.js` (id, prompt, familias de herramientas) |
+| Añadir herramienta | Definición + implementación en `jarvis/tools/tools.js`, asignar familia a los agentes |
+
+## 6. Mejoras futuras (hoja de ruta)
+
+**Corto plazo**
+- [ ] Panel de edición de memoria dentro del dashboard (la API `PUT /api/memory/:archivo` ya existe).
+- [ ] Palabra clave de activación por voz («Jarvis, …») además de los aplausos.
+- [ ] Notificaciones del navegador (Web Notifications) además del panel.
+- [ ] Recordatorios con hora que disparen TTS («recuérdame a las 5…»).
+
+**Medio plazo**
+- [ ] Búsqueda web real para el Research Agent (herramienta `web_search` del lado del servidor con la API de Anthropic).
+- [ ] Integración con Shopify (ya hay conector MCP disponible en tu entorno) para que Data Analyst lea pedidos y métricas reales.
+- [ ] Lectura de métricas de Meta Ads (CSV importado o API) para kill-rules automáticas.
+- [ ] Modo «trabajo largo»: encargos que corren minutos y notifican al terminar (la base SSE ya lo soporta).
+
+**Largo plazo**
+- [ ] Migrar agentes a Claude Agent SDK o Managed Agents para sub-agentes con contexto propio y ejecución más larga.
+- [ ] Voz premium (TTS neuronal vía API) y STT con Whisper local para privacidad total.
+- [ ] Arranque automático con Windows (Tarea programada que lance el servidor al iniciar sesión).
+- [ ] App de escritorio (empaquetar con Electron o usar modo kiosco de Edge: `msedge --app=http://localhost:8200`).
+
+## 7. Solución de problemas
+
+| Síntoma | Causa probable / arreglo |
+|---|---|
+| No detecta los aplausos | Baja `aplausos.umbral` a 0.22–0.28. Aplaude fuerte y seco, cerca del micrófono. |
+| Se activa solo con ruidos | Sube el umbral a 0.38–0.45. |
+| No habla / voz robótica | Usa Edge. Ajusta `voz.vozPreferida` (p. ej. "Microsoft Dalia", "Microsoft Jorge"). |
+| No me entiende | El STT necesita internet (el del navegador es un servicio en línea). Revisa el chip RED. |
+| «SIN IA» en el header | Ni Ollama corriendo ni clave de Claude. Instala Ollama (`ollama pull llama3.1`) o agrega la clave en `secrets.json`. |
+| Ollama responde lento | Prueba un modelo más pequeño (`llama3.2:3b`) en `ia.ollama.modelo`, o cierra apps que usen GPU/RAM. |
+| Ollama no usa herramientas | Algunos modelos no soportan *tools*; Jarvis reintenta sin ellas automáticamente. Usa `llama3.1`, `qwen2.5` o `mistral-nemo` para tener herramientas. |
+| Puerto ocupado | Cambia `puerto` en config.json o `JARVIS_PORT=8300` como variable de entorno. |

@@ -1,0 +1,38 @@
+{
+  "nombre": "Jarvis",
+  "puerto": 8200,
+  "ia": {
+    "proveedor": "auto",
+    "_proveedor_opciones": "auto = Claude si hay clave, si no Ollama | claude | ollama",
+    "claude": {
+      "modelo": "claude-opus-4-8"
+    },
+    "ollama": {
+      "url": "http://127.0.0.1:11434",
+      "modelo": "llama3.1"
+    }
+  },
+  "ciudad": "Ciudad de México",
+  "latitud": 19.4326,
+  "longitud": -99.1332,
+  "zonaHoraria": "America/Mexico_City",
+  "saludo": "Bienvenido a casa, señor.",
+  "musicaBienvenida": "assets/welcome.mp3",
+  "voz": {
+    "idioma": "es-MX",
+    "velocidad": 1.05,
+    "tono": 0.9,
+    "vozPreferida": "Microsoft Jorge"
+  },
+  "aplausos": {
+    "habilitado": true,
+    "umbral": 0.32,
+    "separacionMinimaMs": 120,
+    "separacionMaximaMs": 700
+  },
+  "dropMeta": {
+    "ruta": "../drop-meta",
+    "abrirAlActivar": true
+  },
+  "historialMaximo": 200
+}
