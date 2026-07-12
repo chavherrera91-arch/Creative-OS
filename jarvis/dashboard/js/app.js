@@ -45,35 +45,85 @@
   }
 
   // ---------- Secuencia de activación ----------
+  // Dos aplausos → canción + pantalla "INICIANDO JARVIS" → saludo por
+  // voz → y SOLO entonces aparece la interfaz principal.
+
+  /** Pantalla de arranque: log de sistema con datos reales + progreso. */
+  async function secuenciaArranque() {
+    let est = null;
+    try {
+      est = await (await fetch('/api/status')).json();
+    } catch { /* sin datos: el log usa valores genéricos */ }
+
+    const lineas = [
+      ['Núcleo Jarvis', 'v1.0 cargado'],
+      ['Memoria permanente', est ? `${(await (await fetch('/api/memory')).json()).length} archivos` : 'cargada'],
+      ['Motor de IA', est?.ia?.disponible ? `${est.ia.proveedor} (${est.ia.modelo})` : 'modo básico'],
+      ['Agentes especializados', est ? `${est.agentes} en línea` : 'en línea'],
+      ['Drop-Meta', est?.dropMeta?.disponible ? 'disponible' : 'no encontrada'],
+      ['Red', est?.internet ? 'conectada' : 'sin internet'],
+      ['Sistemas de voz', JarvisVoz.soportaSTT ? 'listos' : 'no soportados'],
+    ];
+
+    const log = $('arranque-log');
+    const progreso = $('arranque-progreso');
+    const estado = $('arranque-estado');
+    log.innerHTML = '';
+
+    for (let i = 0; i < lineas.length; i++) {
+      const [etiqueta, valor] = lineas[i];
+      // La línea anterior deja de tener cursor.
+      log.querySelector('.cursor')?.classList.remove('cursor');
+      const div = document.createElement('div');
+      div.className = 'linea-boot cursor';
+      div.innerHTML = `<span class="ok">[ OK ]</span> ${etiqueta} <span class="dato">— ${valor}</span>`;
+      log.appendChild(div);
+      progreso.style.width = `${Math.round(((i + 1) / lineas.length) * 100)}%`;
+      estado.textContent = `${etiqueta}…`;
+      await new Promise((r) => setTimeout(r, 480));
+    }
+    log.querySelector('.cursor')?.classList.remove('cursor');
+    estado.textContent = 'Sistemas en línea';
+    await new Promise((r) => setTimeout(r, 400));
+  }
 
   async function activar(origen) {
     if (activado) return;
     activado = true;
-
-    // 1) Canción de entrada: YouTube si está configurada; si falla
-    //    (sin internet, video no embebible), respaldo local.
     JarvisAudio.pausarDeteccion();
-    const musicaYT = await JarvisIntro.reproducir();
-    if (!musicaYT) await JarvisAudio.bienvenida(CONFIG.musicaBienvenida);
 
-    // 2) Mostrar el centro de mando (la canción sigue de fondo).
+    // 1) Canción de entrada EN PARALELO (no bloquea el arranque):
+    //    YouTube si está configurada; si falla, respaldo local.
+    const musicaPromesa = JarvisIntro.reproducir().then((ok) => {
+      if (!ok) return JarvisAudio.bienvenida(CONFIG.musicaBienvenida);
+      return true;
+    });
+
+    // 2) Pantalla "INICIANDO JARVIS" mientras suena la música.
     $('standby').classList.add('oculto');
+    $('arranque').classList.remove('oculto');
+    await secuenciaArranque();
+
+    // 3) Saludo por voz (la música baja sola). La interfaz espera.
+    await JarvisVoz.decir(CONFIG.saludo || 'Bienvenido a casa, señor. ¿Qué puedo hacer por usted?');
+
+    // 4) AHORA sí: interfaz principal.
+    $('arranque').classList.add('oculto');
     $('hud').classList.remove('oculto');
     JarvisUI.consola(`Activación por ${origen === 'aplausos' ? 'doble aplauso' : 'botón'}.`, 'ok');
-    if (musicaYT) {
-      JarvisUI.consola('♪ Canción de entrada sonando (controles abajo a la derecha).', 'accion');
-      await new Promise((r) => setTimeout(r, 3500)); // deja respirar el riff
-    }
 
-    // 3) Saludo por voz (la música baja sola mientras Jarvis habla).
-    await JarvisVoz.decir(CONFIG.saludo || 'Bienvenido a casa, señor.');
-
-    // 4) Abrir Drop-Meta.
+    // 5) Drop-Meta: verificar que está lista (no se abre encima del HUD;
+    //    el botón ⬢ la trae al frente cuando quieras).
     if (CONFIG.dropMeta?.abrirAlActivar) {
-      abrirDropMeta(true);
+      try {
+        const r = await fetch('/drop-meta/', { method: 'HEAD' });
+        JarvisUI.consola(r.ok ? 'Drop-Meta verificada y lista (⬢ para abrir).' : 'Drop-Meta no responde.', r.ok ? 'ok' : 'error');
+      } catch {
+        JarvisUI.consola('No pude verificar Drop-Meta.', 'error');
+      }
     }
 
-    // 5) Escucha continua de comandos.
+    // 6) Escucha continua de comandos.
     if (JarvisVoz.soportaSTT) {
       JarvisVoz.escuchar(procesarComando);
       $('btn-mic').classList.add('activo');
@@ -83,6 +133,7 @@
     }
 
     refrescarTodo();
+    void musicaPromesa; // sigue sonando de fondo con sus controles
   }
 
   // ---------- Drop-Meta (overlay integrado, sin popups) ----------

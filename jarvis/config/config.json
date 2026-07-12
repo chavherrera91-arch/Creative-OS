@@ -16,7 +16,7 @@
   "latitud": 19.4326,
   "longitud": -99.1332,
   "zonaHoraria": "America/Mexico_City",
-  "saludo": "Bienvenido a casa, señor.",
+  "saludo": "Bienvenido a casa, señor. ¿Qué puedo hacer por usted?",
   "musicaIntro": {
     "tipo": "youtube",
     "url": "https://youtu.be/l482T0yNkeo",
