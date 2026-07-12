@@ -6,6 +6,12 @@
       "runtimeExecutable": "C:\\Users\\PC\\AppData\\Local\\nodejs-portable\\node.exe",
       "runtimeArgs": ["node_modules/vite/bin/vite.js"],
       "port": 5173
+    },
+    {
+      "name": "jarvis",
+      "runtimeExecutable": "C:\\Users\\PC\\AppData\\Local\\nodejs-portable\\node.exe",
+      "runtimeArgs": ["jarvis/core/server.js"],
+      "port": 8200
     }
   ]
 }

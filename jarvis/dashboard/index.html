@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JARVIS · Centro de mando</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/jarvis.css">
+</head>
+<body>
+
+<!-- ══════════ Pantalla de espera (standby) ══════════ -->
+<div id="standby" class="standby">
+  <div class="standby-core">
+    <div class="reactor" id="reactor">
+      <canvas id="reactor-standby" width="340" height="340"></canvas>
+    </div>
+    <h1 class="standby-titulo">J A R V I S</h1>
+    <p class="standby-sub">Director de operaciones · Dropshipping</p>
+    <button id="btn-iniciar" class="btn-principal">INICIAR SISTEMAS</button>
+    <p id="standby-estado" class="standby-estado"></p>
+    <button id="btn-activar-manual" class="btn-secundario oculto">Activar sin aplausos</button>
+  </div>
+</div>
+
+<!-- ══════════ Pantalla de arranque (entre los aplausos y el HUD) ══════════ -->
+<div id="arranque" class="arranque oculto">
+  <div class="arranque-centro">
+    <h1 class="arranque-titulo">INICIANDO JARVIS</h1>
+    <div id="arranque-log" class="arranque-log"></div>
+    <div class="arranque-barra"><div id="arranque-progreso" class="arranque-progreso"></div></div>
+    <p id="arranque-estado" class="arranque-estado">Cargando núcleo…</p>
+  </div>
+</div>
+
+<!-- ══════════ Centro de mando ══════════ -->
+<div id="hud" class="hud oculto">
+
+  <header class="hud-cabecera">
+    <div class="cab-bloque cab-marca">
+      <span class="marca-punto"></span>
+      <span class="marca-nombre">JARVIS</span>
+      <span class="marca-version">v1.0</span>
+    </div>
+    <div class="cab-bloque cab-reloj">
+      <div id="reloj" class="reloj">--:--:--</div>
+      <div id="fecha" class="fecha">—</div>
+    </div>
+    <div class="cab-bloque cab-indicadores">
+      <span id="ind-internet" class="chip">RED</span>
+      <span id="ind-ia" class="chip">IA</span>
+      <span id="ind-dropmeta" class="chip">DROP-META</span>
+    </div>
+  </header>
+
+  <main class="hud-rejilla">
+
+    <!-- Columna izquierda -->
+    <section class="panel" id="panel-sistema">
+      <h2>ESTADO DEL SISTEMA</h2>
+      <div id="sistema-cuerpo" class="panel-cuerpo lista-datos"></div>
+    </section>
+
+    <section class="panel" id="panel-clima">
+      <h2>CLIMA</h2>
+      <div id="clima-cuerpo" class="panel-cuerpo"></div>
+    </section>
+
+    <section class="panel" id="panel-calendario">
+      <h2 id="cal-titulo">CALENDARIO</h2>
+      <div id="calendario-cuerpo" class="panel-cuerpo"></div>
+    </section>
+
+    <section class="panel" id="panel-agentes">
+      <h2>AGENTES</h2>
+      <div id="agentes-cuerpo" class="panel-cuerpo lista-agentes"></div>
+    </section>
+
+    <!-- Columna central: IA -->
+    <section class="panel panel-ia" id="panel-ia">
+      <div class="ia-tabs">
+        <button type="button" id="tab-nucleo" class="ia-tab activo">◉ NÚCLEO</button>
+        <button type="button" id="tab-chat" class="ia-tab">💬 CHAT</button>
+        <span id="voz-texto" class="voz-texto">En espera</span>
+      </div>
+      <div id="vista-nucleo" class="vista-nucleo">
+        <canvas id="reactor-hud" width="460" height="400"></canvas>
+      </div>
+      <div id="vista-chat" class="vista-chat oculto">
+        <div id="conversacion" class="conversacion"></div>
+      </div>
+      <form id="form-comando" class="form-comando" autocomplete="off">
+        <select id="sel-agente" class="sel-agente" title="Agente destino">
+          <option value="">CEO (coordina)</option>
+        </select>
+        <input id="in-comando" type="text" placeholder="Escriba una orden o hable…" />
+        <button type="submit" class="btn-enviar" title="Enviar">➤</button>
+        <button type="button" id="btn-mic" class="btn-mic" title="Alternar micrófono">🎙</button>
+      </form>
+    </section>
+
+    <!-- Columna derecha -->
+    <section class="panel" id="panel-tareas">
+      <h2>TAREAS <button id="btn-nueva-tarea" class="btn-mini" title="Nueva tarea">+</button></h2>
+      <div id="tareas-cuerpo" class="panel-cuerpo lista-tareas"></div>
+    </section>
+
+    <section class="panel" id="panel-notificaciones">
+      <h2>NOTIFICACIONES</h2>
+      <div id="notif-cuerpo" class="panel-cuerpo lista-notif"></div>
+    </section>
+
+    <section class="panel" id="panel-consola">
+      <h2>CONSOLA DE ACCIONES</h2>
+      <div id="consola-cuerpo" class="panel-cuerpo consola"></div>
+    </section>
+
+    <section class="panel" id="panel-historial">
+      <h2>HISTORIAL DE COMANDOS</h2>
+      <div id="historial-cuerpo" class="panel-cuerpo lista-historial"></div>
+    </section>
+
+  </main>
+
+  <footer class="hud-pie">
+    <button id="btn-abrir-dropmeta" class="btn-pie">⬢ ABRIR DROP-META</button>
+    <span id="pie-mensaje" class="pie-mensaje">Sistemas nominales.</span>
+  </footer>
+</div>
+
+<!-- Drop-Meta integrado (overlay sobre el HUD, sin popups) -->
+<div id="overlay-dropmeta" class="overlay-dropmeta oculto">
+  <div class="overlay-cabecera">
+    <span class="overlay-titulo">⬢ DROP-META · Operador de Dropshipping</span>
+    <div class="overlay-acciones">
+      <a href="/drop-meta/" target="_blank" class="btn-overlay" title="Abrir en pestaña aparte">↗ PESTAÑA</a>
+      <button type="button" id="btn-dropmeta-cerrar" class="btn-overlay" title="Volver al centro de mando">✕ VOLVER A JARVIS</button>
+    </div>
+  </div>
+  <iframe id="iframe-dropmeta" title="Drop-Meta"></iframe>
+</div>
+
+<!-- Reproductor de YouTube (oculto: solo audio) + barra de música -->
+<div id="youtube-player" class="youtube-oculto"></div>
+<div id="barra-musica" class="barra-musica oculto">
+  <span id="musica-titulo" class="musica-titulo">♪ Intro</span>
+  <button id="btn-musica-pausa" class="btn-musica" title="Pausar / reanudar">⏸</button>
+  <button id="btn-musica-stop" class="btn-musica" title="Detener">⏹</button>
+  <button id="btn-musica-cambiar" class="btn-musica" title="Cambiar canción">✏</button>
+</div>
+
+<script src="js/audio.js"></script>
+<script src="js/reactor.js"></script>
+<script src="js/intro.js"></script>
+<script src="js/voice.js"></script>
+<script src="js/chat.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

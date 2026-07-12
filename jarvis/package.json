@@ -1,0 +1,11 @@
+{
+  "name": "jarvis",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Asistente personal Jarvis para dropshipping — servidor local sin dependencias",
+  "type": "commonjs",
+  "main": "core/server.js",
+  "scripts": {
+    "start": "node core/server.js"
+  }
+}
