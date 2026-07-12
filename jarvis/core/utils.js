@@ -149,9 +149,26 @@ function servirEstatico(res, base, relativa) {
   return true;
 }
 
+/**
+ * Localiza la carpeta de Drop-Meta probando varias ubicaciones:
+ * la configurada (p. ej. "../drop-meta" en Creative OS) y una copia
+ * dentro de jarvis/ ("drop-meta"), útil en el repo independiente.
+ */
+function rutaDropMeta(rutaConfigurada) {
+  const candidatas = [
+    path.resolve(RAIZ, rutaConfigurada || '../drop-meta'),
+    path.join(RAIZ, 'drop-meta'),
+  ];
+  for (const c of candidatas) {
+    if (fs.existsSync(path.join(c, 'index.html'))) return c;
+  }
+  return candidatas[0];
+}
+
 module.exports = {
   RAIZ,
   RAIZ_PROYECTO,
+  rutaDropMeta,
   leerJSON,
   escribirJSON,
   rutaSegura,

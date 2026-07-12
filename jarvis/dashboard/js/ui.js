@@ -253,26 +253,19 @@ const JarvisUI = (() => {
 
   // ---------- Indicador de voz ----------
   function estadoVoz(estado) {
-    const ind = $('voz-indicador');
     const txt = $('voz-texto');
-    ind.classList.remove('escuchando', 'hablando');
-    if (estado === 'escuchando') {
-      ind.classList.add('escuchando');
-      txt.textContent = 'Escuchando…';
-    } else if (estado === 'hablando') {
-      ind.classList.add('hablando');
-      txt.textContent = 'Jarvis hablando…';
-    } else if (estado === 'pensando') {
-      ind.classList.add('hablando');
-      txt.textContent = 'Procesando…';
-    } else {
-      txt.textContent = 'Micrófono en pausa';
-    }
+    if (estado === 'escuchando') txt.textContent = '🎙 Escuchando…';
+    else if (estado === 'hablando') txt.textContent = '🔊 Jarvis hablando…';
+    else if (estado === 'pensando') txt.textContent = '⚙ Procesando…';
+    else txt.textContent = 'Micrófono en pausa';
     // El reactor del panel refleja el mismo estado.
     window.JarvisReactor?.setModo(
       ['escuchando', 'hablando', 'pensando'].includes(estado) ? estado : 'inactivo',
       'reactor-hud',
     );
+    // El botón del micrófono refleja la intención real del usuario.
+    const btn = $('btn-mic');
+    if (btn) btn.classList.toggle('activo', JarvisVoz.estaEscuchando());
   }
 
   function mensajePie(texto) {

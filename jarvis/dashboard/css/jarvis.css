@@ -342,49 +342,58 @@ body::before {
 .agente .agente-nombre { color: var(--texto); }
 .agente .agente-rol { color: var(--texto-tenue); font-size: 11px; margin-left: auto; }
 
-/* ── Panel IA ── */
+/* ── Panel IA (vistas NÚCLEO / CHAT) ── */
 .panel-ia { border-color: var(--borde-fuerte); }
 
-.voz-indicador {
+.ia-tabs {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 6px 12px 8px;
+  gap: 8px;
   margin-bottom: 8px;
+}
+
+.ia-tab {
+  padding: 7px 18px;
   background: rgba(64, 208, 255, 0.05);
   border: 1px solid var(--borde);
   border-radius: 3px;
+  color: var(--texto-tenue);
+  font-family: var(--fuente-ui);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
 }
-#reactor-hud { width: 100%; max-width: 460px; height: auto; }
-
-.voz-onda { display: flex; gap: 3px; align-items: center; height: 22px; }
-.voz-onda span {
-  width: 3px;
-  height: 6px;
-  background: var(--texto-tenue);
-  border-radius: 2px;
-  transition: background 0.2s;
-}
-.voz-indicador.escuchando .voz-onda span {
-  background: var(--cian);
-  animation: onda 0.9s ease-in-out infinite;
-}
-.voz-indicador.hablando .voz-onda span {
-  background: var(--ambar);
-  animation: onda 0.5s ease-in-out infinite;
-}
-.voz-onda span:nth-child(2) { animation-delay: 0.12s; }
-.voz-onda span:nth-child(3) { animation-delay: 0.24s; }
-.voz-onda span:nth-child(4) { animation-delay: 0.36s; }
-.voz-onda span:nth-child(5) { animation-delay: 0.48s; }
-
-@keyframes onda {
-  0%, 100% { height: 6px; }
-  50% { height: 20px; }
+.ia-tab:hover { color: var(--cian-suave); border-color: var(--borde-fuerte); }
+.ia-tab.activo {
+  color: var(--cian-suave);
+  background: rgba(64, 208, 255, 0.16);
+  border-color: var(--borde-fuerte);
+  box-shadow: 0 0 14px rgba(64, 208, 255, 0.2);
 }
 
-.voz-texto { font-family: var(--fuente-mono); font-size: 12px; color: var(--texto-tenue); }
+.voz-texto {
+  margin-left: auto;
+  font-family: var(--fuente-mono);
+  font-size: 12px;
+  color: var(--texto-tenue);
+}
+
+.vista-nucleo {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+#reactor-hud { width: 100%; max-width: 520px; height: 100%; max-height: 100%; object-fit: contain; }
+
+.vista-chat {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 
 .conversacion {
   flex: 1;
@@ -555,6 +564,59 @@ body::before {
 }
 .btn-pie:hover { background: rgba(255, 179, 71, 0.2); box-shadow: 0 0 16px rgba(255, 179, 71, 0.25); }
 .pie-mensaje { font-family: var(--fuente-mono); font-size: 12px; color: var(--texto-tenue); }
+
+/* ── Overlay de Drop-Meta ── */
+.overlay-dropmeta {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: var(--fondo);
+  animation: aparecer 0.35s ease-out;
+}
+
+.overlay-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--fondo-panel);
+  border-bottom: 1px solid var(--borde-fuerte);
+}
+
+.overlay-titulo {
+  font-family: var(--fuente-ui);
+  font-weight: 700;
+  letter-spacing: 3px;
+  font-size: 14px;
+  color: var(--ambar);
+}
+
+.overlay-acciones { display: flex; gap: 8px; }
+
+.btn-overlay {
+  padding: 6px 14px;
+  background: rgba(64, 208, 255, 0.08);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: 3px;
+  color: var(--cian-suave);
+  font-family: var(--fuente-ui);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.btn-overlay:hover { background: rgba(64, 208, 255, 0.2); }
+
+#iframe-dropmeta {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #fff;
+}
 
 /* ── Intro musical (YouTube) ── */
 .youtube-oculto {

@@ -85,7 +85,7 @@
     refrescarTodo();
   }
 
-  // ---------- Drop-Meta ----------
+  // ---------- Drop-Meta (overlay integrado, sin popups) ----------
 
   async function abrirDropMeta(comprobar) {
     if (comprobar) {
@@ -98,8 +98,26 @@
         return;
       }
     }
-    window.open('/drop-meta/', 'dropmeta');
-    JarvisUI.consola('Drop-Meta abierto en una pestaña.', 'accion');
+    const iframe = $('iframe-dropmeta');
+    if (!iframe.src || iframe.src === 'about:blank' || !iframe.src.includes('/drop-meta/')) {
+      iframe.src = '/drop-meta/';
+    }
+    $('overlay-dropmeta').classList.remove('oculto');
+    JarvisUI.consola('Drop-Meta abierto (✕ para volver a Jarvis).', 'accion');
+  }
+
+  function cerrarDropMeta() {
+    $('overlay-dropmeta').classList.add('oculto');
+  }
+
+  // ---------- Vistas del panel central (NÚCLEO / CHAT) ----------
+
+  function verVista(cual) {
+    const nucleo = cual === 'nucleo';
+    $('vista-nucleo').classList.toggle('oculto', !nucleo);
+    $('vista-chat').classList.toggle('oculto', nucleo);
+    $('tab-nucleo').classList.toggle('activo', nucleo);
+    $('tab-chat').classList.toggle('activo', !nucleo);
   }
 
   // ---------- Comandos (voz o texto) ----------
@@ -107,6 +125,7 @@
   async function procesarComando(texto, origen = 'voz') {
     if (ocupado) return;
     ocupado = true;
+    if (origen === 'texto') verVista('chat'); // por voz, el reactor sigue al frente
     JarvisUI.estadoVoz('pensando');
     JarvisUI.agregarMensaje('usuario', texto);
     JarvisUI.consola(`Comando (${origen}): ${texto}`);
@@ -201,7 +220,11 @@
 
   async function refrescarEstado() {
     try {
-      JarvisUI.pintarSistema(await (await fetch('/api/status')).json());
+      const est = await (await fetch('/api/status')).json();
+      JarvisUI.pintarSistema(est);
+      if (est.urlLan) {
+        JarvisUI.mensajePie(`Sistemas nominales. 📱 En tu teléfono (misma WiFi): ${est.urlLan}`);
+      }
     } catch {
       JarvisUI.mensajePie('Servidor de Jarvis inaccesible.');
     }
@@ -304,6 +327,16 @@
     $('btn-iniciar').addEventListener('click', prepararSistemas);
     $('btn-activar-manual').addEventListener('click', () => activar('manual'));
     $('btn-abrir-dropmeta').addEventListener('click', () => abrirDropMeta(false));
+    $('btn-dropmeta-cerrar').addEventListener('click', cerrarDropMeta);
+    $('tab-nucleo').addEventListener('click', () => verVista('nucleo'));
+    $('tab-chat').addEventListener('click', () => verVista('chat'));
+
+    // Diagnóstico de voz SIEMPRE visible: si el reconocimiento falla,
+    // la causa aparece en la consola y en el estado (nunca en silencio).
+    JarvisVoz.setDiagnosticoCallback((mensaje, esError) => {
+      JarvisUI.consola(mensaje, esError ? 'error' : '');
+      if (esError) document.getElementById('voz-texto').textContent = '⚠ Voz con problemas (ver consola)';
+    });
 
     $('form-comando').addEventListener('submit', (e) => {
       e.preventDefault();
@@ -348,6 +381,13 @@
     JarvisReactor.crear('reactor-standby', { mostrarTexto: false });
     JarvisReactor.crear('reactor-hud');
     JarvisUI.iniciarReloj();
+
+    // Si el micrófono ya fue autorizado antes, Jarvis se arma solo al
+    // abrir la página: queda esperando los dos aplausos sin clics.
+    try {
+      const permiso = await navigator.permissions.query({ name: 'microphone' });
+      if (permiso.state === 'granted') prepararSistemas();
+    } catch { /* navegador sin Permissions API: queda el botón */ }
     // Los paneles se cargan aunque siga en standby (útiles al activar).
     refrescarTodo();
     setInterval(refrescarEstado, 30_000);

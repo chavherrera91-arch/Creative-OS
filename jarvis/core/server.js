@@ -21,6 +21,7 @@ const {
   responderJSON,
   iniciarSSE,
   servirEstatico,
+  rutaDropMeta,
 } = require('./utils');
 const memoria = require('./memory');
 const store = require('./store');
@@ -35,7 +36,7 @@ const clima = require('../integrations/weather');
 const CONFIG = leerJSON(path.join(RAIZ, 'config', 'config.json'), {});
 const PUERTO = Number(process.env.JARVIS_PORT || CONFIG.puerto || 8200);
 const DIR_DASHBOARD = path.join(RAIZ, 'dashboard');
-const DIR_DROPMETA = path.resolve(RAIZ, CONFIG.dropMeta?.ruta || '../drop-meta');
+const DIR_DROPMETA = rutaDropMeta(CONFIG.dropMeta?.ruta);
 const INICIO = Date.now();
 
 // Conversaciones en curso (por sesión del navegador), solo en memoria RAM.
@@ -46,6 +47,16 @@ function historialDeSesion(id) {
 }
 
 // ---------- Endpoints de la API ----------
+
+/** IP local (IPv4 no interna) para acceder desde el teléfono en la misma red. */
+function ipLan() {
+  for (const redes of Object.values(os.networkInterfaces())) {
+    for (const red of redes || []) {
+      if (red.family === 'IPv4' && !red.internal) return red.address;
+    }
+  }
+  return null;
+}
 
 async function apiEstado(res) {
   let internet = false;
@@ -73,6 +84,7 @@ async function apiEstado(res) {
     agentes: agentes.listar().length,
     automatizaciones: herramientas.listarAutomatizaciones(),
     programador: scheduler.resumen(),
+    urlLan: ipLan() ? `http://${ipLan()}:${PUERTO}` : null,
   });
 }
 
@@ -314,6 +326,8 @@ memoria.asegurarMemoria();
 scheduler.iniciar();
 servidor.listen(PUERTO, async () => {
   logger.info('servidor', `Jarvis en línea → http://localhost:${PUERTO}`);
+  const lan = ipLan();
+  if (lan) logger.info('servidor', `Desde el teléfono (misma red) → http://${lan}:${PUERTO}`);
   logger.info('servidor', `Drop-Meta servido en → http://localhost:${PUERTO}/drop-meta/`);
   const estadoIA = await ia.info();
   logger.info(

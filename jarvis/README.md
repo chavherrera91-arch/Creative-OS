@@ -39,6 +39,45 @@ reconocimiento de voz) o Chrome.
 3. Da **dos aplausos**. Jarvis reproduce la música de bienvenida, dice
    *"Bienvenido a casa, señor."*, abre Drop-Meta y queda escuchando.
 
+Desde la segunda vez, **ya no hace falta el clic**: si el permiso de micrófono
+quedó concedido, la página se arma sola al abrirse y queda esperando los
+aplausos.
+
+### Modo aplicación y segundo plano
+
+- **Escritorio**: el acceso directo **JARVIS** abre el centro de mando como
+  aplicación propia (ventana sin pestañas, con Edge `--app`).
+- **Arranque con Windows**: el acceso directo *Jarvis Servidor* de la carpeta
+  Inicio lanza el servidor **oculto en segundo plano** al iniciar sesión
+  (usa `herramientas/servidor-oculto.vbs`). Para desactivarlo: bórralo de
+  `shell:startup`.
+- Flujo diario: enciendes la PC → el servidor ya está corriendo → doble clic
+  en JARVIS (o abre el navegador) → dos aplausos → a trabajar.
+
+### Desde el teléfono (misma WiFi)
+
+El servidor escucha en toda tu red local. El pie del dashboard muestra la
+dirección exacta (p. ej. `http://192.168.100.14:8200`) — ábrela en el
+navegador del teléfono y tendrás el dashboard completo, chat con los agentes,
+tareas y Drop-Meta.
+
+- La primera vez, Windows puede preguntar si permites conexiones de red para
+  Node.js: marca **Redes privadas → Permitir** (ese cuadro lo debes aceptar
+  tú; si no apareció, agrega tú mismo la regla del puerto 8200 en el
+  Firewall de Windows).
+- **Límite técnico**: la voz (micrófono/TTS) en el teléfono requiere HTTPS —
+  los navegadores bloquean el micrófono en HTTP que no sea localhost. Por
+  eso desde el móvil se usa por texto; la voz remota (túnel HTTPS con
+  Tailscale/Cloudflare) está en la hoja de ruta.
+
+### La interfaz central: NÚCLEO y CHAT
+
+El panel central tiene dos vistas con botones: **◉ NÚCLEO** (el reactor
+animado a pantalla completa, reactivo a la voz) y **💬 CHAT** (la
+conversación). Al escribir un comando salta al chat solo; por voz se queda
+en el núcleo, como Iron Man. **⬢ ABRIR DROP-META** abre la app integrada
+encima del HUD (✕ VOLVER A JARVIS para regresar, ↗ para pestaña aparte).
+
 ## 2. Configuración
 
 ### Motor de IA: Ollama por defecto, Claude opcional (el "interruptor")
@@ -259,7 +298,7 @@ un CSV exportado de Meta con `leer_archivo`.
 | No detecta los aplausos | Baja `aplausos.umbral` a 0.22–0.28. Aplaude fuerte y seco, cerca del micrófono. |
 | Se activa solo con ruidos | Sube el umbral a 0.38–0.45. |
 | No habla / voz robótica | Usa Edge. Ajusta `voz.vozPreferida` (p. ej. "Microsoft Dalia", "Microsoft Jorge"). |
-| No me entiende | El STT necesita internet (el del navegador es un servicio en línea). Revisa el chip RED. |
+| No me entiende / no escucha | El fallo exacto aparece ahora en la **Consola de Acciones** (permiso denegado, sin internet, sin micrófono…). Lo más común: permiso de micrófono denegado → candado de la barra de direcciones → Permitir → pulsa 🎙. El STT necesita internet. Usa Edge o Chrome. |
 | «SIN IA» en el header | Ni Ollama corriendo ni clave de Claude. Instala Ollama (`ollama pull llama3.1`) o agrega la clave en `secrets.json`. |
 | Ollama responde lento | Prueba un modelo más pequeño (`llama3.2:3b`) en `ia.ollama.modelo`, o cierra apps que usen GPU/RAM. |
 | Ollama no usa herramientas | Algunos modelos no soportan *tools*; Jarvis reintenta sin ellas automáticamente. Usa `llama3.2:3b`, `llama3.1`, `qwen2.5` o `mistral-nemo` para tener herramientas. |

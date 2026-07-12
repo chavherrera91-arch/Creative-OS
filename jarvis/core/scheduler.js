@@ -16,7 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
-const { RAIZ, leerJSON, escribirJSON, rutaSegura } = require('./utils');
+const { RAIZ, leerJSON, escribirJSON, rutaSegura, rutaDropMeta } = require('./utils');
 const store = require('./store');
 const logger = require('./logger');
 const shopify = require('../integrations/shopify');
@@ -145,7 +145,7 @@ async function vigilancia() {
   }
 
   // Drop-Meta presente en disco
-  const dirDropMeta = path.resolve(RAIZ, CONFIG.dropMeta?.ruta || '../drop-meta');
+  const dirDropMeta = rutaDropMeta(CONFIG.dropMeta?.ruta);
   await condicion(
     'dropmeta',
     'Drop-Meta no está disponible en disco.',

@@ -69,12 +69,17 @@
 
     <!-- Columna central: IA -->
     <section class="panel panel-ia" id="panel-ia">
-      <h2>PANEL DE IA</h2>
-      <div id="voz-indicador" class="voz-indicador">
-        <canvas id="reactor-hud" width="460" height="230"></canvas>
+      <div class="ia-tabs">
+        <button type="button" id="tab-nucleo" class="ia-tab activo">◉ NÚCLEO</button>
+        <button type="button" id="tab-chat" class="ia-tab">💬 CHAT</button>
         <span id="voz-texto" class="voz-texto">En espera</span>
       </div>
-      <div id="conversacion" class="conversacion"></div>
+      <div id="vista-nucleo" class="vista-nucleo">
+        <canvas id="reactor-hud" width="460" height="400"></canvas>
+      </div>
+      <div id="vista-chat" class="vista-chat oculto">
+        <div id="conversacion" class="conversacion"></div>
+      </div>
       <form id="form-comando" class="form-comando" autocomplete="off">
         <select id="sel-agente" class="sel-agente" title="Agente destino">
           <option value="">CEO (coordina)</option>
@@ -112,6 +117,18 @@
     <button id="btn-abrir-dropmeta" class="btn-pie">⬢ ABRIR DROP-META</button>
     <span id="pie-mensaje" class="pie-mensaje">Sistemas nominales.</span>
   </footer>
+</div>
+
+<!-- Drop-Meta integrado (overlay sobre el HUD, sin popups) -->
+<div id="overlay-dropmeta" class="overlay-dropmeta oculto">
+  <div class="overlay-cabecera">
+    <span class="overlay-titulo">⬢ DROP-META · Operador de Dropshipping</span>
+    <div class="overlay-acciones">
+      <a href="/drop-meta/" target="_blank" class="btn-overlay" title="Abrir en pestaña aparte">↗ PESTAÑA</a>
+      <button type="button" id="btn-dropmeta-cerrar" class="btn-overlay" title="Volver al centro de mando">✕ VOLVER A JARVIS</button>
+    </div>
+  </div>
+  <iframe id="iframe-dropmeta" title="Drop-Meta"></iframe>
 </div>
 
 <!-- Reproductor de YouTube (oculto: solo audio) + barra de música -->
