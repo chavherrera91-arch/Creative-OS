@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quantos"
+version = "0.1.0"
+description = "AI Quant Research Platform — research-first, multi-agent Investment Committee (no live capital)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Creative-OS" }]
+keywords = ["quant", "research", "trading", "backtesting", "multi-agent", "ai"]
+
+# Core deps are intentionally minimal so the platform runs anywhere, offline,
+# with no exchange keys. Everything heavier is opt-in via extras below.
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+]
+
+[project.optional-dependencies]
+# Real market data (read-only). Not required — a deterministic synthetic
+# generator is used as a fallback when ccxt is unavailable.
+data = ["ccxt>=4.0"]
+# Heavier research/backtesting stack from the roadmap.
+research = [
+    "vectorbt>=0.26",
+    "quantstats>=0.0.62",
+    "scikit-learn>=1.3",
+    "optuna>=3.4",
+]
+dev = ["pytest>=7.4"]
+
+[project.scripts]
+quantos = "quantos.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["quantos*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
