@@ -26,70 +26,111 @@ invariants intact + suite green*.
 
 ---
 
-# Milestone 2 — Data Lake  ⭐ build this next
+# Milestone 2 — Data Infrastructure (professional)  ⭐ build this next
 
-Goal: turn the single `DataCollector` into a real, persisted, multi-channel Data
-Lake that every downstream module can query — while staying fully offline-capable.
+Goal: a **professional, modular, schema-versioned, validated, monitored** data
+platform designed to run **24/7 for years**, where each source is an independent
+plug-in connector added **without touching the core**. The Data Lake is the
+platform's primary asset, optimised for research, backtesting, ML and real-time.
 
-### WP-2.1 — Store abstraction (DuckDB/Parquet + Timescale)
-- **Files:** `quantos/data/store.py`, `tests/test_store.py`.
-- **Build:**
-  - `class Store(Protocol)` per ARCHITECTURE §2.4 (`write`, `read`, `upsert`).
-  - `DuckDBStore(path)` — default, offline. Backed by DuckDB over Parquet files;
-    if `duckdb` is unavailable, fall back to a pure Parquet/pandas implementation
-    so tests never require duckdb.
-  - `TimescaleStore(dsn)` — optional (extra `[infra]`), lazy-imports psycopg;
-    hypertable creation helper. Never imported unless explicitly constructed.
-  - A `get_store(settings)` factory returning DuckDBStore by default.
-- **Acceptance:** round-trip write→read of an OHLCV frame is loss-free; `upsert`
-  on `(symbol, timestamp)` keys is idempotent (writing the same rows twice does
-  not duplicate). Offline test uses DuckDBStore only.
+> **Read [`docs/DATA_INFRASTRUCTURE.md`](./docs/DATA_INFRASTRUCTURE.md) in full
+> before building** — it holds the principles, the component map, and the exact
+> contract signatures. The WPs below are the build order; the doc is the detail.
 
-### WP-2.2 — DataSource base + market source
-- **Files:** `quantos/data/sources/base.py`, `quantos/data/sources/market.py`,
-  `tests/test_sources_market.py`.
-- **Build:**
-  - `class DataSource(Protocol)` per §2.4 (`name`, `fetch`, `is_offline_capable`).
-  - `MarketSource` wrapping the existing collector logic (ccxt + synthetic
-    fallback) behind `fetch(symbol, start, end, timeframe)`.
-- **Acceptance:** `MarketSource().fetch(...)` returns a normalised OHLCV frame
-  offline; `is_offline_capable()` is `True`.
+Dependency order within M2: 2.1 → 2.2 → 2.3 → 2.4 → 2.5 → 2.6 → 2.7 → 2.8 → 2.9.
 
-### WP-2.3 — Derivatives, on-chain, macro, sentiment, news sources
-- **Files:** one module each under `quantos/data/sources/`
-  (`derivatives.py`, `onchain.py`, `macro.py`, `sentiment.py`, `news.py`),
-  plus `tests/test_sources_channels.py`.
-- **Build:** each is a `DataSource` with a **synthetic offline generator** and an
-  optional real backend (stub the real API behind a lazy import; do **not** hardcode
-  any provider key). Output schemas:
-  - derivatives: `funding_rate, open_interest, long_short_ratio, basis`
-  - onchain: `net_exchange_flow, whale_accumulation, stablecoin_supply`
-  - macro: `dxy, rates, cpi, event_flag` (event_flag names e.g. FOMC/NFP/CPI)
-  - sentiment: `score` (-1..1) plus per-platform breakdown
-  - news: rows of `{ts, source, headline, tag, sentiment}` (tagging can be a
-    deterministic keyword stub now; real AI tagging is M6/optional)
-- **Acceptance:** each source produces a deterministic frame offline with the
-  documented columns; a test asserts columns + determinism per source.
+### WP-2.1 — Schema system (versioned)
+- **Files:** `quantos/data/schema/base.py`, `schema/registry.py`,
+  `schema/validation.py`, `tests/test_schema.py`.
+- **Build:** `FieldSpec`, `Schema`, `SchemaRegistry` (register/latest/get),
+  `Migration` + `migrate()`, `DataValidator` → `ValidationReport` (required cols,
+  dtype coercion, non-null, PK uniqueness, monotonic `event_time`, min/max range).
+- **Acceptance:** two schema versions + a migration transform a v1 frame to v2;
+  validator rejects a frame missing a required column / with duplicate PKs /
+  with a non-monotonic time column; returns a cleaned frame + accurate report.
 
-### WP-2.4 — DataLake facade
-- **Files:** `quantos/data/lake.py`, `tests/test_lake.py`.
-- **Build:**
-  - `class DataLake` composed of a `Store` + registered `DataSource`s.
-  - `ingest(symbol, timeframe, start, end)` pulls each source and persists it.
-  - `snapshot(symbol, timeframe, limit, channels=...) -> MarketSnapshot` reads
-    from the store and assembles the **multi-channel** snapshot the committee
-    already understands (populates `derivatives/onchain/macro/sentiment/events`).
-- **Acceptance:** after `ingest`, `snapshot` returns a `MarketSnapshot` whose
-  side-channels are populated so that **all 5 analysts participate (0 abstentions)**
-  in `default_committee().deliberate(snapshot)`. Offline, deterministic.
+### WP-2.2 — Store (tiered: raw / curated / features)
+- **Files:** `quantos/data/store/base.py`, `store/duckdb_store.py`,
+  `store/timescale_store.py`, `tests/test_store.py`.
+- **Build:** `Store` Protocol with tiers (`raw|curated|features`) and
+  `write/upsert/read/tables`. `DuckDBStore` default (DuckDB over Parquet; pure
+  pandas/Parquet fallback if `duckdb` absent so tests never require it).
+  `TimescaleStore` optional (`[infra]`, lazy psycopg, hypertable helper).
+- **Acceptance:** loss-free round-trip per tier; `upsert` on PK is idempotent
+  (writing identical rows twice does not grow the table). Offline test uses
+  DuckDBStore only.
 
-### WP-2.5 — Wire CLI + docker-compose
-- **Files:** extend `quantos/cli.py` (`ingest`, and `--from-lake` on `decide`),
-  add `quant/docker-compose.yml` (timescaledb + redis + dashboard placeholder),
-  `tests/test_cli_lake.py`.
+### WP-2.3 — Connector framework + registry (self-registration)
+- **Files:** `quantos/data/connectors/base.py`, `connectors/registry.py`,
+  `tests/test_connectors_registry.py`.
+- **Build:** `ConnectorMetadata`, `FetchRequest`, `FetchResult`, `HealthStatus`,
+  `Connector` ABC (`fetch`, `synthetic`, `healthcheck`); module-level
+  `registry` + `@register` class decorator. Discovery is registry-based; **no core
+  file references a specific connector**.
+- **Acceptance:** a dummy `@register`ed connector appears in `registry.all()` and
+  `by_category()`; registering requires **zero edits** to base/registry/lake.
+
+### WP-2.4 — Market connector
+- **Files:** `quantos/data/connectors/market.py`, `tests/test_connector_market.py`.
+- **Build:** OHLCV connector reusing the existing ccxt+synthetic logic behind the
+  `Connector` interface, emitting rows with `symbol, event_time, ingested_at,
+  open, high, low, close, volume` against a registered `market` schema.
+- **Acceptance:** `synthetic` mode is deterministic and schema-valid; `fetch` in
+  `auto` mode works offline (falls back to synthetic).
+
+### WP-2.5 — Derivatives / on-chain / macro / sentiment / news connectors
+- **Files:** `connectors/{derivatives,onchain,macro,sentiment,news}.py`,
+  `tests/test_connectors_channels.py`.
+- **Build:** one `@register`ed `Connector` each, all with deterministic
+  `synthetic` modes and lazy-imported optional real backends (no hardcoded keys).
+  Schemas per `docs/DATA_INFRASTRUCTURE.md` §2. News tagging is a deterministic
+  keyword stub now (AI tagging is M6).
+- **Acceptance:** each connector produces a schema-valid deterministic frame
+  offline; a test asserts schema conformance + determinism per connector.
+
+### WP-2.6 — Resilient ingestion runner
+- **Files:** `quantos/data/ingest/retry.py`, `ingest/watermark.py`,
+  `ingest/runner.py`, `tests/test_ingest_runner.py`.
+- **Build:** `RetryPolicy` (exponential backoff + jitter), `CircuitBreaker`,
+  `Watermark` store (per connector+symbol, persisted via `Store`),
+  `IngestionRunner.run` = circuit gate → fetch-with-retries → validate → write raw
+  + upsert curated → advance watermark → record health. Fully idempotent.
+- **Acceptance:** a connector that raises K times is retried per policy then
+  succeeds; after `failure_threshold` failures the breaker opens; a second `run`
+  over the same window does not duplicate curated rows (watermark + upsert).
+
+### WP-2.7 — Gaps, scheduler, health monitor (24/7)
+- **Files:** `quantos/data/ingest/gaps.py`, `ingest/scheduler.py`,
+  `quantos/data/quality/monitor.py`, `tests/test_ops.py`.
+- **Build:** gap detection vs cadence + backfill; `Scheduler` with
+  `(connector, symbol, cadence)` jobs and an offline-testable `run_due(now)`;
+  `HealthMonitor` (freshness/lag, success rate, rows/interval, last error).
+- **Acceptance:** an injected missing timestamp is detected and repaired;
+  `run_due` dispatches only due jobs; `HealthMonitor` flags a stale connector.
+
+### WP-2.8 — Catalog, FeatureStore (point-in-time), DataLake facade
+- **Files:** `quantos/data/catalog.py`, `quantos/data/featurestore.py`,
+  `quantos/data/lake.py`, `tests/test_featurestore.py`, `tests/test_lake.py`.
+- **Build:** `DataCatalog` (datasets, schema+version, freshness, lineage);
+  `FeatureStore.as_of(symbol, at, features)` via backward as-of join (**never
+  returns event_time > at**, I2); `DataLake` facade (`ingest`, `repair_gaps`,
+  `snapshot(..., at=None)`, `catalog`, `health`).
+- **Acceptance:** explicit no-look-ahead test on `as_of`; after `ingest`,
+  `DataLake.snapshot(...)` yields a `MarketSnapshot` where
+  `default_committee().deliberate(snapshot)` has **0 abstentions**;
+  `health()` reports per-connector freshness.
+
+### WP-2.9 — CLI + compose wiring
+- **Files:** extend `quantos/cli.py` (`ingest`, `catalog`, `health`, and
+  `--from-lake` on `decide`), `quant/docker-compose.yml`
+  (timescaledb + redis + dashboard placeholder), `tests/test_cli_lake.py`.
 - **Acceptance:** `quantos ingest --symbol BTC/USDT` runs offline against
-  DuckDBStore; `quantos decide --from-lake` produces a 0-abstention decision.
-  compose file lints (`docker compose config`) — no secrets committed.
+  DuckDBStore; `quantos decide --from-lake` gives a 0-abstention decision;
+  `docker compose config` lints; **no secrets committed**.
+
+### M2 milestone gate (professional bar)
+All eight acceptance points in `docs/DATA_INFRASTRUCTURE.md` §7 pass, the suite
+is green/offline/fast, and adding a source provably needs **zero core edits**.
 
 ---
 

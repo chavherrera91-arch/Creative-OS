@@ -230,7 +230,9 @@ quant/
 
 ```
 M1 ✅ Investment Committee vertical slice            [DONE]
-M2    Data Lake (Store + sources + lake facade)      → unlocks real data for all
+M2    Data Infrastructure (professional)             → unlocks real data for all
+      └─ detailed design: docs/DATA_INFRASTRUCTURE.md (connector framework,
+         schema versioning, validation, resilient 24/7 ingestion, feature store)
 M3    Risk Engine hardening + Forward test           → completes the validation funnel
 M4    Anomaly detection + Scenario simulator          (depend on M2)
 M5    Strategy generator + Genetic evolution + Lab    (depend on M2, M3)
