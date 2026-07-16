@@ -88,7 +88,7 @@ The remaining milestones extend this spine. **They do not rewrite it.**
 
 | Vision module | Package(s) | Milestone | Key contract |
 | ------------- | ---------- | --------- | ------------ |
-| 1. Data Lake | `data.lake`, `data.sources.*`, `data.store` | M2 | `DataSource`, `Store` |
+| 1. Data Lake | `data.schema`✅, `data.store`✅, `data.connectors`✅ (foundation), `data.lake`, `data.ingest` | M2 🚧 (WP-2.1–2.4 done) | `Connector`, `Store`, `Schema` |
 | 2. Multi-agent engine | `committee/*` (extend), `committee.llm` | M1✅ / M6 | `Analyst` |
 | 3. Confidence system | `committee.confidence` | M1✅ | — |
 | 4. Anomaly detector | `anomaly` | M4 | `AnomalyDetector` |

@@ -40,6 +40,13 @@ On-chain  ─┘          │
 | Monte Carlo robustness | ✅ | `quantos/backtest/monte_carlo.py` |
 | Paper trading (with per-trade dossier) | ✅ | `quantos/paper/` |
 | Broker / RiskGate / ExecutionEngine interfaces | 🔒 decoupled & **disabled** | `quantos/execution/` |
+| Data Lake foundation: versioned schemas, tiered store, plug-in connectors | 🚧 M2 (WP-2.1–2.4) | `quantos/data/{schema,store,connectors}/` |
+
+The Data Lake is being built as professional data infrastructure (schema
+versioning, validation, tiered storage, self-registering connectors, resilient
+24/7 ingestion, point-in-time feature store) — see
+[`docs/DATA_INFRASTRUCTURE.md`](./docs/DATA_INFRASTRUCTURE.md) and
+[`BUILD_PLAN.md`](./BUILD_PLAN.md).
 
 Deliberately **not** wired to real money: any attempt to build a live execution
 engine raises `LiveExecutionDisabled`. The paper broker is the only execution
