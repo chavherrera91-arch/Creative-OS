@@ -8,6 +8,8 @@ needs no edit here — importing its module (which uses ``@register``) is enough
 from __future__ import annotations
 
 # Built-in connectors are added milestone by milestone. Importing a module runs
-# its @register decorator. WP-2.4 adds `market`; WP-2.5 adds derivatives,
-# onchain, macro, sentiment and news.
-BUILTIN_MODULES: tuple[str, ...] = ()
+# its @register decorator. WP-2.5 adds derivatives, onchain, macro, sentiment
+# and news.
+from quantos.data.connectors import market  # noqa: F401
+
+BUILTIN_MODULES: tuple[str, ...] = ("market",)
