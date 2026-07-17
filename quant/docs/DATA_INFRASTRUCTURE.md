@@ -268,3 +268,74 @@ The core (`schema`, `connectors.base`, `store.duckdb_store`, `ingest.*`,
    abstentions**.
 7. **Observability**: `DataLake.health()` reports freshness/success per connector.
 8. Whole suite green, offline, no keys, fast.
+
+---
+
+## 8. Dataset catalog (the full lake)
+
+Every dataset below is one `Connector` + one versioned `Schema`. All share
+`symbol`, `event_time` (tz-aware UTC, point-in-time key, I2) and `ingested_at`;
+only the domain fields are listed. Connectors ship a deterministic `synthetic`
+mode (I6); real backends are optional and lazy. Not everything is built in M2 —
+M2 delivers the framework + the starred (⭐) connectors; the rest are added later,
+each with **zero core edits** (the whole point of the plug-in design).
+
+### Market (`category="market"`)
+| Dataset | Connector | Key fields |
+| ------- | --------- | ---------- |
+| OHLCV (multi-timeframe) ⭐ | `market` | `timeframe, open, high, low, close, volume` |
+| Tick / trades | `trades` | `price, size, side, trade_id` |
+| VWAP | `vwap` | `vwap, window` |
+| Spread | `spread` | `bid, ask, spread_abs, spread_bps` |
+| Order book (L2 snapshots) | `orderbook` | `bids[[price,size]], asks[[price,size]], depth` |
+
+### Derivatives (`category="derivatives"`)
+| Dataset | Connector | Key fields |
+| ------- | --------- | ---------- |
+| Open Interest | `open_interest` | `open_interest, oi_change` |
+| Funding Rate | `funding` | `funding_rate, next_funding_time` |
+| Liquidations | `liquidations` | `side, qty, price, notional` |
+| Long/Short Ratio | `long_short` | `long_short_ratio, top_trader_ratio` |
+| Basis | `basis` | `spot, perp, basis_abs, basis_annualised` |
+
+### On-chain (`category="onchain"`)
+| Dataset | Connector | Key fields |
+| ------- | --------- | ---------- |
+| Exchange flows | `exchange_flows` | `inflow, outflow, net_exchange_flow` |
+| Whale activity | `whales` | `whale_accumulation, large_tx_count` |
+| Stablecoins | `stablecoins` | `stablecoin_supply, supply_change, exchange_reserve` |
+| Institutional wallets | `institutions` | `inst_netflow, wallet_count, holdings` |
+
+### Macro (`category="macro"`)
+| Dataset | Connector | Key fields |
+| ------- | --------- | ---------- |
+| CPI / PPI | `inflation` | `cpi, ppi, surprise` |
+| FOMC / rates | `rates` | `policy_rate, rate_bias, fomc_flag` |
+| NFP / labour | `labour` | `nfp, unemployment, surprise` |
+| DXY | `dxy` | `dxy, dxy_trend` |
+| Bonds / yields | `bonds` | `yield_2y, yield_10y, curve_slope` |
+| Event calendar | `macro_events` | `event, importance, event_flag` (drives Risk veto & regime) |
+
+### Sentiment (`category="sentiment"`)
+| Dataset | Connector | Key fields |
+| ------- | --------- | ---------- |
+| Reddit | `reddit` | `score, volume, subreddit` |
+| X / Twitter | `x` | `score, volume, influencer_weighted` |
+| Telegram | `telegram` | `score, volume, channel` |
+| YouTube | `youtube` | `score, volume` |
+| Google Trends | `google_trends` | `interest, interest_change` |
+| Aggregate | `sentiment` | `score` (-1..1, blended; the one the SentimentAnalyst reads) |
+
+### News (`category="news"`)
+| Dataset | Connector | Key fields |
+| ------- | --------- | ---------- |
+| Tagged headlines | `news` | `source, headline, tag, sentiment, entities[]` |
+
+News is **AI-tagged**: an LLM (M6) classifies topic, sentiment and entities. In
+M2 the tagger is a deterministic keyword stub so the connector is offline-testable;
+the LLM tagger swaps in behind the same schema with no downstream change.
+
+### Derived / features (`tier="features"`)
+Built by the FeatureStore and consumers, not connectors: regime features (ADX,
+realised vol, Hurst — M4), strategy signals (M5), and any ML features. Always
+read point-in-time (as-of) to preserve I2.

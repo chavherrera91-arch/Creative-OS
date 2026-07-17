@@ -26,7 +26,101 @@ invariants intact + suite green*.
 
 ---
 
-# Milestone 2 — Data Infrastructure (professional)  ⭐ build this next
+# Milestone 1 — Investment Committee  ⭐ build this first
+
+Goal: the platform's differentiator, end-to-end and offline — specialist analysts
+whose evidence is aggregated into a confidence score, a Risk Manager that can
+**veto**, a Chair that renders an auditable decision, the explainability report,
+and the backtest→walk-forward→Monte Carlo→paper funnel to validate what the
+committee decides. No real capital (I1). This milestone also creates the core
+types (`MarketSnapshot`, `Direction`, `Evidence`, `AnalystOpinion`,
+`CommitteeDecision`) every later milestone reuses.
+
+Dependency order within M1: 1.1 → 1.2 → 1.3 → 1.4 → 1.5 → 1.6 → 1.7 → 1.8.
+
+### WP-1.1 — Package skeleton + config + core data model
+- **Files:** `quant/pyproject.toml`, `quant/.env.example`, `quant/.gitignore`,
+  `quant/README.md`, `quantos/__init__.py`, `quantos/config.py`,
+  `quantos/data/models.py` (`MarketSnapshot`), `quantos/data/collector.py`
+  (read-only ccxt + deterministic synthetic fallback), `tests/test_data.py`,
+  `tests/conftest.py`.
+- **Build:** offline-first packaging (extras: `data`, `research`, `dev`);
+  `Settings` from env with defaults; `MarketSnapshot` carrying OHLCV + optional
+  derivatives/onchain/macro/sentiment/events/news channels; a `DataCollector`
+  that never places orders and falls back to a seeded synthetic generator.
+- **Acceptance:** synthetic data is deterministic; `MarketSnapshot` validates its
+  OHLCV columns; everything imports and tests run with only numpy+pandas (I6).
+
+### WP-1.2 — Technical indicators
+- **Files:** `quantos/features/indicators.py`, `tests/test_indicators.py`.
+- **Build:** vectorised, no-look-ahead `ema/sma/rsi/atr/macd/bollinger/zscore/
+  returns/rolling_volatility`.
+- **Acceptance:** each indicator matches a hand-checked value on a fixture; no
+  value at bar *t* uses data > *t* (I2).
+
+### WP-1.3 — Analyst base + specialist analysts
+- **Files:** `quantos/committee/base.py` (`Direction`, `Evidence`,
+  `AnalystOpinion`, `Analyst` ABC with `_abstain`), `committee/analysts.py`
+  (Technical, Statistical, Macro, Sentiment, On-chain), `tests/test_analysts.py`.
+- **Build:** each analyst emits an `AnalystOpinion` with signed `Evidence`;
+  data-hungry analysts **abstain** when their channel is absent (I3).
+- **Acceptance:** technical analyst is bullish on an uptrend fixture; a data-less
+  macro/sentiment/onchain analyst abstains; every opinion carries evidence.
+
+### WP-1.4 — Confidence model
+- **Files:** `quantos/committee/confidence.py`, `tests/test_confidence.py`.
+- **Build:** weighted aggregation over categories → `ConfidenceReport`
+  (composite direction, confidence, agreement, per-category, abstentions,
+  `meets_threshold`). Abstentions excluded from the denominator (I3).
+- **Acceptance:** agreement + threshold logic verified; all-abstain → FLAT.
+
+### WP-1.5 — Risk Manager (veto) + Chair + decision
+- **Files:** `quantos/committee/risk_manager.py` (`RiskAssessment`),
+  `committee/chair.py`, `committee/decision.py` (`CommitteeDecision` with
+  `regime`/`strategies_considered`/`run_manifest` fields, defaulting empty in
+  M1), `committee/committee.py` (`InvestmentCommittee`, `default_committee`),
+  `tests/test_risk_and_chair.py`.
+- **Build:** Risk rules (volatility spike, macro event, daily drawdown, low
+  liquidity) returning veto/warning; Chair decision hierarchy (regime gate ▶ risk
+  veto ▶ threshold). A veto forces FLAT regardless of confidence (I5).
+- **Acceptance:** a unanimous LONG is blocked by a single veto; below-threshold
+  stands down; decision serialises fully via `as_dict()` (I4).
+
+### WP-1.6 — Explainability engine
+- **Files:** `quantos/explain/explainer.py`, `tests/test_explain.py`.
+- **Build:** `explain_decision(decision) -> str` (Decision / Confidence /
+  Reasons-for / Reasons-against / Risks / Analyst panel / Chair) and
+  `decision_report(decision) -> dict` (JSON-serialisable).
+- **Acceptance:** report shows a surfaced veto; JSON report is serialisable (I4).
+
+### WP-1.7 — Backtest funnel (backtest / walk-forward / Monte Carlo)
+- **Files:** `quantos/backtest/metrics.py`, `backtest/engine.py`
+  (`backtest`, `committee_signals`), `backtest/walk_forward.py`,
+  `backtest/monte_carlo.py`, `tests/test_backtest.py`.
+- **Build:** vectorised backtest with costs and **lagged positions** (I2);
+  committee-driven signal generation; walk-forward OOS folds; Monte Carlo
+  resampling with percentiles + prob-of-loss.
+- **Acceptance:** flat positions → ~0 return; a late-only position cannot affect
+  prior bars (no look-ahead); metrics finite; MC percentiles ordered.
+
+### WP-1.8 — Paper trading + disabled execution interfaces + CLI
+- **Files:** `quantos/paper/broker.py` (`PaperBroker`, `TradeRecord` dossier),
+  `quantos/execution/interfaces.py` (`Broker`/`RiskGate`/`ExecutionEngine`
+  Protocols, `PaperExecutionEngine`, `build_execution_engine` raising
+  `LiveExecutionDisabled`), `quantos/cli.py` (`decide|backtest|walkforward|
+  montecarlo|paper`), `tests/test_paper_and_execution.py`.
+- **Build:** paper broker with fees/slippage and a per-trade dossier; execution
+  layer that **refuses** any live/non-paper engine (I1).
+- **Acceptance:** `build_execution_engine(live=True)` raises; a non-paper broker
+  is rejected; `quantos decide` prints a full explainable decision offline.
+
+### M1 milestone gate
+Committee runs offline end-to-end; a veto is absolute; the backtest funnel has no
+look-ahead; live execution is provably disabled; suite green/offline/fast.
+
+---
+
+# Milestone 2 — Data Infrastructure (professional)
 
 Goal: a **professional, modular, schema-versioned, validated, monitored** data
 platform designed to run **24/7 for years**, where each source is an independent
@@ -154,53 +248,103 @@ is green/offline/fast, and adding a source provably needs **zero core edits**.
 
 ---
 
-# Milestone 4 — Anomaly detection + Scenario simulator
+# Milestone 4 — Market State Intelligence (anomaly + regime + scenarios)
+
+Goal: teach the platform to read the *state* of the market. This milestone
+delivers the **Market Regime Engine** (module 14) whose classification, together
+with the Meta-Learner (M7), drives "select only strategies validated for this
+regime." All classifications are explainable (evidence) and reproducible (I8).
 
 ### WP-4.1 — Anomaly detector
 - **Files:** `quantos/anomaly/base.py`, `quantos/anomaly/detectors.py`,
   `tests/test_anomaly.py`.
-- **Build:** `AnomalyDetector` Protocol (§2.4). `IsolationForestDetector`
-  (sklearn, extra `[ml]`) **and** a dependency-free `ZScoreDetector` baseline so
-  tests run without sklearn. Detects volume spikes / volatility bursts / gaps.
+- **Build:** `AnomalyDetector` Protocol (ARCHITECTURE §2.4).
+  `IsolationForestDetector` (sklearn, extra `[ml]`) **and** a dependency-free
+  `ZScoreDetector` baseline so tests run without sklearn. Detects volume spikes /
+  volatility bursts / gaps / suspected wash-trading & fake liquidity patterns.
 - **Acceptance:** on a series with an injected spike, `flags()` marks the spike
   and not the calm region. Baseline test uses `ZScoreDetector` only.
 
-### WP-4.2 — Anomaly context into the committee
-- **Files:** small `AnomalyAnalyst` in `committee/analysts.py` (or an
-  `events` enrichment), tests.
-- **Acceptance:** an active anomaly surfaces in the decision (evidence or a risk
-  warning/veto) and is visible in `explain_decision`.
+### WP-4.2 — Regime feature set
+- **Files:** `quantos/features/regime_features.py`, `tests/test_regime_features.py`.
+- **Build:** no-look-ahead features that characterise state: trend strength (ADX /
+  EMA slope), realised & ATR volatility, range vs trend (e.g. Hurst / efficiency
+  ratio), volume regime, and macro-event proximity (from the `events` channel).
+- **Acceptance:** each feature is deterministic and uses only data ≤ *t* (I2);
+  trend fixture scores high trend-strength, choppy fixture scores low.
 
-### WP-4.3 — Scenario simulator
+### WP-4.3 — Market Regime Engine  (module 14)
+- **Files:** `quantos/regime/base.py` (`RegimeState`, `RegimeClassifier`
+  Protocol), `quantos/regime/classifier.py` (`RuleRegimeClassifier` baseline; an
+  optional `HmmRegimeClassifier`/`GmmRegimeClassifier` behind `[ml]`),
+  `tests/test_regime.py`.
+- **Build:** `classify(snapshot) -> RegimeState` returning a label
+  (`TREND_UP|TREND_DOWN|RANGE|HIGH_VOL|LOW_VOL|MACRO_EVENT|CRISIS`), class
+  probabilities, the driving features, and **`Evidence`** explaining the call.
+  The rule baseline needs no ML dependency. Classification is deterministic (I8).
+- **Acceptance:** a strong-uptrend fixture classifies `TREND_UP` with supporting
+  evidence; a high-ATR/spike fixture classifies `HIGH_VOL` or `CRISIS`; a macro
+  `events` flag forces `MACRO_EVENT`. Same input → same output (reproducible).
+
+### WP-4.4 — Regime into the committee context
+- **Files:** an `AnomalyAnalyst` and regime enrichment in `committee/analysts.py`
+  / the deliberation context; extend `CommitteeDecision.regime`; tests.
+- **Build:** the committee receives `regime` + `anomalies` in its context; the
+  Chair's **regime gate** (ARCHITECTURE §3) can stand down in an untradeable
+  regime; the decision records the active regime (I4). No Meta-Learner yet (M7).
+- **Acceptance:** an active anomaly surfaces in `explain_decision`; the decision
+  carries the classified regime; an untradeable-regime fixture stands down.
+
+### WP-4.5 — Scenario simulator
 - **Files:** `quantos/scenarios/library.py`, `quantos/scenarios/simulator.py`,
   `tests/test_scenarios.py`.
 - **Build:** named historical-style regimes (`COVID_CRASH`, `FTX`, `ETF_RALLY`,
   `BEAR_2022`, `BULL_2021`) as parameterised synthetic generators;
-  `simulate(strategy_or_committee, scenario) -> BacktestResult`.
+  `simulate(strategy_or_committee, scenario) -> BacktestResult`. Each scenario
+  also labels its ground-truth regime so the Regime Engine can be scored against it.
 - **Acceptance:** each scenario yields a deterministic path with the expected
-  qualitative shape (e.g. COVID_CRASH has a deep drawdown); simulate returns
-  metrics without touching real capital.
+  qualitative shape (COVID_CRASH → deep drawdown); the Regime Engine recovers the
+  scenario's labelled regime on its core segment; no real capital touched.
 
 ---
 
-# Milestone 5 — Strategy generator + Genetic evolution
+# Milestone 5 — Strategy Lab: AI generator + Genetic evolution
+
+Goal: the platform *invents* strategies rather than having them hand-coded, then
+auto-validates and culls them. Each strategy declares the **regime(s) it targets**
+so the Meta-Learner (M7) can map families → regimes.
 
 ### WP-5.1 — Strategy base + registry
 - **Files:** `quantos/strategy/base.py`, `tests/test_strategy_base.py`.
-- **Build:** `StrategySpec`, `Strategy` Protocol (§2.4), an
-  `IndicatorStrategy` that turns a spec (indicators + params + rules) into a
-  no-look-ahead target-position `signals(ohlcv)` series; a registry of building
-  blocks (indicators + comparators).
-- **Acceptance:** a spec round-trips to signals; signals never use future bars (I2).
+- **Build:** `StrategySpec` (with `version`, `family`, and `target_regimes`),
+  `Strategy` Protocol (ARCHITECTURE §2.4), an `IndicatorStrategy` that turns a
+  spec (indicators + params + rules) into a no-look-ahead target-position
+  `signals(ohlcv)` series; a registry of building blocks (indicators +
+  comparators). Specs are hashable/versioned for reproducibility (I8).
+- **Acceptance:** a spec round-trips to signals; signals never use future bars
+  (I2); the same spec always yields the same signals.
 
-### WP-5.2 — Strategy generator
+### WP-5.2 — Strategy generator (AI-invented)
 - **Files:** `quantos/strategy/generator.py`, `tests/test_generator.py`.
-- **Build:** `generate(n, seed, diversity)` producing N **distinct** specs
-  (enforce indicator/param diversity; no duplicates). LLM-backed generation is an
-  optional path behind `LLMClient`; the **default is deterministic** random-search
-  over the building-block registry.
-- **Acceptance:** `generate(100)` yields 100 unique specs offline; diversity
-  metric above a threshold; each spec is a valid `Strategy`.
+- **Build:** `generate(n, seed, diversity)` producing N **distinct** specs.
+  Two backends behind one interface: (a) a **deterministic** random/grammar
+  search over the building-block registry (default, offline) and (b) an optional
+  **LLM backend** (`LLMClient`, M6) where Claude proposes original strategies with
+  a stated `rationale` and `target_regimes`. Diversity is enforced (no duplicate
+  indicator sets; a diversity metric gate). Generated specs are validated to be
+  runnable `Strategy`s before they leave the generator.
+- **Acceptance:** `generate(100)` yields 100 unique, valid specs offline and
+  deterministically for a fixed seed; diversity metric above threshold; the LLM
+  path is exercised with `MockLLMClient` and never required for tests.
+
+### WP-5.3 — Strategy lab (auto backtest + cull)
+- **Files:** `quantos/strategy/lab.py`, `tests/test_lab.py`.
+- **Build:** `StrategyLab.run(specs, ohlcv)` backtests each (reusing the M1
+  funnel), ranks by a fitness (e.g. Sharpe with drawdown penalty), **culls** the
+  weak, and persists results + the per-strategy regime it was tested under to the
+  `Store` (and optional MLflow) — the raw material the Meta-Learner consumes.
+- **Acceptance:** ranking is deterministic offline; culling keeps the top-k;
+  results (including tested regime) are queryable from the store.
 
 ### WP-5.3 — Strategy lab (auto backtest + cull)
 - **Files:** `quantos/strategy/lab.py`, `tests/test_lab.py`.
@@ -251,29 +395,64 @@ is green/offline/fast, and adding a source provably needs **zero core edits**.
 
 ---
 
-# Milestone 7 — Decision Archive + RAG memory + Continuous learning
+# Milestone 7 — Memory & Learning (archive + RAG + audit + meta-learning)
+
+Goal: close the loop. Persist every decision + outcome, recall past regimes,
+audit what failed, and — the headline — **learn which strategy families work in
+which regime** so the platform selects only regime-validated strategies before
+each decision.
 
 ### WP-7.1 — Decision Archive
 - **Files:** `quantos/memory/archive.py`, `tests/test_archive.py`.
-- **Build:** `DecisionArchive` persisting each `CommitteeDecision` (via `as_dict`)
-  plus later outcome (`record_outcome(id, pnl, notes)`) to the `Store` — the
-  per-trade "expediente" from vision item 10.
-- **Acceptance:** decisions and outcomes round-trip; queryable by symbol/date.
+- **Build:** `DecisionArchive` persisting each `CommitteeDecision` (via `as_dict`,
+  including `regime`, `strategies_considered` and `run_manifest`) plus later
+  outcome (`record_outcome(id, pnl, notes)`) to the `Store` — the per-trade
+  "expediente" from vision item 10. Reproducible via the stored manifest (I8).
+- **Acceptance:** decisions and outcomes round-trip; queryable by symbol / date /
+  regime; the stored manifest is sufficient to replay the decision.
 
 ### WP-7.2 — RAG memory
 - **Files:** `quantos/memory/base.py`, `quantos/memory/rag.py`,
   `tests/test_rag.py`.
-- **Build:** `MemoryStore` Protocol (§2.4). Offline default = a TF-IDF / keyword
-  retriever over archived decisions (no external embedding service); pluggable
-  embedding backend behind `[llm]`. Enables "6 months ago strategy 23 failed on
-  CPI" recall as retrieved context for the committee.
+- **Build:** `MemoryStore` Protocol (ARCHITECTURE §2.4). Offline default = a
+  TF-IDF / keyword retriever over archived decisions (no external embedding
+  service); pluggable embedding backend behind `[llm]`. Enables "6 months ago
+  strategy 23 failed on CPI" recall as retrieved context for the committee.
 - **Acceptance:** `query("CPI")` retrieves the CPI-tagged past decision offline.
 
-### WP-7.3 — Continuous audit
+### WP-7.3 — Meta-Learning Engine  (module 15)
+- **Files:** `quantos/meta/base.py` (`RegimePerformanceTable`, `MetaLearner`
+  Protocol), `quantos/meta/learner.py` (`BaselineMetaLearner`),
+  `tests/test_meta.py`.
+- **Build:** `RegimePerformanceTable` accumulates validated performance per
+  `(strategy_family, regime)` from the StrategyLab results and the DecisionArchive
+  outcomes. `MetaLearner.select(regime, universe)` returns **only** the families
+  whose validated stats clear a bar for that regime (empty ⇒ stand down).
+  `MetaLearner.update(archive)` refreshes the table from new outcomes (continuous
+  learning). Deterministic and explainable: `select` exposes why each family was
+  chosen/rejected (I4, I8).
+- **Acceptance:** given a seeded table where family A is validated in `TREND_UP`
+  and family B in `RANGE`, `select(TREND_UP)` returns A and not B; an unvalidated
+  regime returns an empty set (stand down); `update` moves a family in/out of
+  validation as outcomes change.
+
+### WP-7.4 — Wire regime → meta-selection into the flow
+- **Files:** integrate into the deliberation entry point (a
+  `research_pipeline`/orchestrator that composes Regime → MetaLearner → Committee),
+  `tests/test_pipeline.py`.
+- **Build:** the full ARCHITECTURE §4 flow: classify regime → `MetaLearner.select`
+  → selected strategies emit signals into the committee → decision records the
+  regime + strategies considered. All offline and reproducible.
+- **Acceptance:** for a `TREND_UP` fixture only trend-validated strategies feed
+  the committee; for an untradeable/unvalidated regime the pipeline stands down;
+  the decision's `as_dict()` shows the regime and the strategies considered (I4).
+
+### WP-7.5 — Continuous audit (the Auditor)
 - **Files:** `quantos/learning/audit.py`, `tests/test_audit.py`.
 - **Build:** `audit(archive)` that mines closed trades for patterns (which analyst
   was most wrong, which regime hurt, indicator hit-rate) and emits a structured
-  report + suggested weight adjustments for the `ConfidenceModel`.
+  report + suggested weight adjustments for the `ConfidenceModel` and validation
+  changes for the Meta-Learner.
 - **Acceptance:** on a seeded archive with a known bad analyst, the audit
   identifies it and proposes lowering its weight.
 
@@ -309,5 +488,7 @@ is green/offline/fast, and adding a source provably needs **zero core edits**.
 - `grep -r "LiveExecutionDisabled" quantos/tests` still asserts I1 wherever
   execution is touched.
 - ARCHITECTURE §2.2 module table and README reflect what shipped.
+- Reproducibility (I8): research paths are seeded; decisions/backtests replay to
+  the same result.
 
-Build M2 first.
+Build M1 first (the Investment Committee), then M2 onward in order.

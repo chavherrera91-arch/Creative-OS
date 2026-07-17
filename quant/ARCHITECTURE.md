@@ -3,7 +3,8 @@
 > **Role split.** This document is written by the *architect* (Opus). It is the
 > single source of truth for **what** the system is and **why**. The companion
 > [`BUILD_PLAN.md`](./BUILD_PLAN.md) tells the *builder* (Fable 5) **how** to
-> construct it, in independently-shippable work packages.
+> construct it, in independently-shippable work packages. **No implementation
+> exists yet** — this branch is the architecture; Fable builds from Milestone 1.
 
 ---
 
@@ -12,13 +13,24 @@
 `quantos` is an **AI quant research platform**, not a trading bot. It researches
 markets, forms an evidence-based opinion through a multi-agent **Investment
 Committee**, validates every idea through a rigorous backtest → walk-forward →
-Monte Carlo → paper-trading funnel, and **only paper-trades**. Real order routing
-is designed for but hard-disabled.
+Monte Carlo → forward-test → paper-trading funnel, and **only paper-trades**.
+Real order routing is designed for but hard-disabled.
 
-The value compounds in two assets that are hard to replicate: (1) the **Data
-Lake** (months of tagged market/derivatives/on-chain/macro/sentiment/news data)
-and (2) the **decision archive** (every committee decision and its outcome, fully
-explainable and auditable).
+Two ideas make it more than a bot:
+
+1. It does not hunt for a single winning strategy. A **Market Regime Engine**
+   classifies the current market state (trend, range, high/low volatility, macro
+   event, crisis…) and a **Meta-Learning Engine** selects only the strategy
+   families **previously validated for that regime**. The right question is never
+   "what's the best strategy?" but "what works *now*, given this regime?"
+2. Every decision is **explainable, auditable and reproducible**: you can replay
+   any decision, see which agent contributed which evidence under which regime,
+   and fix that component instead of the whole system.
+
+The value compounds in three hard-to-replicate assets: the **Data Lake** (months
+of tagged market/derivatives/on-chain/macro/sentiment/news data), the **decision
+archive** (every decision + outcome), and the **regime→strategy performance map**
+the Meta-Learner accumulates.
 
 ### Non-negotiable invariants
 
@@ -28,32 +40,29 @@ definition.
 | # | Invariant | Enforced by |
 | - | --------- | ----------- |
 | I1 | **No real capital.** No code path places a live order. | `execution.build_execution_engine` raises `LiveExecutionDisabled`; only `is_paper` brokers accept orders. |
-| I2 | **No look-ahead.** A value at bar *t* uses only data ≤ *t*; positions are lagged before P&L. | `backtest.engine`, indicator functions. |
-| I3 | **Honest abstention.** An analyst with no data abstains; it never fabricates conviction. | `Analyst._abstain`, `abstained` flag excluded from aggregation. |
-| I4 | **Auditability.** Every decision serialises to a complete record (analysts, evidence, confidence, risk). | `CommitteeDecision.as_dict()`. |
+| I2 | **No look-ahead.** A value at bar *t* uses only data with `event_time ≤ t`; positions are lagged before P&L; feature reads are as-of. | `backtest.engine`, indicators, `FeatureStore.as_of`. |
+| I3 | **Honest abstention.** An analyst with no data abstains; it never fabricates conviction. | `Analyst._abstain`, `abstained` excluded from aggregation. |
+| I4 | **Auditability.** Every decision serialises to a complete record (regime, strategies considered, analysts, evidence, confidence, risk). | `CommitteeDecision.as_dict()`, `DecisionArchive`. |
 | I5 | **Risk veto is absolute.** One veto blocks the trade regardless of confidence. | `Chair.decide`. |
 | I6 | **Runs offline, no secrets.** Every module has a deterministic offline path; keys are never required for research. | synthetic fallbacks, `.env.example`. |
-| I7 | **Interfaces before implementations.** New capabilities plug into existing Protocols without refactoring the committee. | `Analyst`, `Broker`, `RiskGate`, `ExecutionEngine`, `DataSource`. |
+| I7 | **Interfaces before implementations.** New capabilities plug into existing Protocols without refactoring the core. | `Analyst`, `Broker`, `RiskGate`, `ExecutionEngine`, `DataSource`/`Connector`, `Strategy`, `RegimeClassifier`, `MetaLearner`. |
+| I8 | **Reproducibility.** Any decision or backtest can be replayed to the same result: seeds are fixed, and data/schema/strategy/model artifacts are versioned and pinned in the record. | seed plumbing, `SchemaRegistry`, `StrategySpec.version`, run manifests. |
 
 ---
 
-## 1. Current state (Milestone 1 — DONE)
+## 1. Current state
 
-Already built and tested (`quant/quantos`, 34 passing tests):
+**Nothing is implemented.** The repository branch contains only the architecture:
 
 ```
-data/        DataCollector (ccxt read-only + synthetic fallback), MarketSnapshot
-features/    vectorised indicators (ema, rsi, atr, macd, bollinger, zscore, ...)
-committee/   Analyst base + 5 analysts, ConfidenceModel, RiskManager (veto),
-             Chair, InvestmentCommittee, CommitteeDecision
-explain/     Bloomberg-style narrative + JSON decision report
-backtest/    vectorised backtest (no look-ahead), walk-forward, Monte Carlo, metrics
-paper/       PaperBroker with per-trade dossier (TradeRecord)
-execution/   Broker / RiskGate / ExecutionEngine Protocols — DISABLED
-cli.py       decide | backtest | walkforward | montecarlo | paper
+quant/ARCHITECTURE.md            ← this file (master design)
+quant/BUILD_PLAN.md              ← work packages for Fable 5
+quant/docs/DATA_INFRASTRUCTURE.md← professional Data Lake design + schema catalog
 ```
 
-The remaining milestones extend this spine. **They do not rewrite it.**
+Fable 5 builds the system milestone by milestone, starting with **M1 — the
+Investment Committee** (the differentiator), each work package shipping with
+tests and preserving every invariant in §0.
 
 ---
 
@@ -65,16 +74,19 @@ The remaining milestones extend this spine. **They do not rewrite it.**
 ┌──────────────────────────────────────────────────────────────────────┐
 │  PRESENTATION      Dashboard (Streamlit)  ·  CLI  ·  REST API (opt)    │
 ├──────────────────────────────────────────────────────────────────────┤
-│  ORCHESTRATION     InvestmentCommittee  ·  StrategyLab  ·  Scheduler   │
+│  ORCHESTRATION     RegimeClassifier → MetaLearner.select →             │
+│                    InvestmentCommittee  ·  StrategyLab  ·  Scheduler   │
 │                    (LangGraph optional for agent debate)              │
 ├──────────────────────────────────────────────────────────────────────┤
 │  INTELLIGENCE      Analysts (rule + LLM)  ·  Confidence  ·  Risk       │
-│                    Anomaly detector  ·  Strategy generator + GA        │
+│                    Anomaly detector  ·  Market Regime Engine           │
+│                    Strategy generator + GA  ·  Meta-Learning Engine    │
 │                    Memory (RAG)  ·  Scenario simulator                 │
 ├──────────────────────────────────────────────────────────────────────┤
-│  RESEARCH          Backtest · Walk-forward · Monte Carlo · Paper       │
+│  RESEARCH          Backtest · Walk-forward · Monte Carlo · Forward ·   │
+│                    Paper trading                                       │
 ├──────────────────────────────────────────────────────────────────────┤
-│  DATA LAKE         Ingestors → TimescaleDB (hot) + DuckDB/Parquet      │
+│  DATA LAKE         Connectors → TimescaleDB (hot) + DuckDB/Parquet     │
 │                    market · derivatives · on-chain · macro · sentiment │
 │                    · news (AI-tagged)          Redis (cache/bus)       │
 ├──────────────────────────────────────────────────────────────────────┤
@@ -84,25 +96,27 @@ The remaining milestones extend this spine. **They do not rewrite it.**
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 The 13 modules → concrete packages
+### 2.2 The modules → concrete packages
 
 | Vision module | Package(s) | Milestone | Key contract |
 | ------------- | ---------- | --------- | ------------ |
-| 1. Data Lake | `data.schema`✅, `data.store`✅, `data.connectors`✅ (foundation), `data.lake`, `data.ingest` | M2 🚧 (WP-2.1–2.4 done) | `Connector`, `Store`, `Schema` |
-| 2. Multi-agent engine | `committee/*` (extend), `committee.llm` | M1✅ / M6 | `Analyst` |
-| 3. Confidence system | `committee.confidence` | M1✅ | — |
+| 1. Data Lake | `data.schema`, `data.store`, `data.connectors`, `data.ingest`, `data.lake`, `data.featurestore` | M2 | `Connector`, `Store`, `Schema` |
+| 2. Multi-agent engine | `committee/*`, `committee.llm`, `committee.debate` | M1 / M6 | `Analyst`, `Chair` |
+| 3. Confidence system | `committee.confidence` | M1 | `ConfidenceModel` |
 | 4. Anomaly detector | `anomaly` | M4 | `AnomalyDetector` |
 | 5. Strategy generator | `strategy.generator`, `strategy.lab` | M5 | `Strategy`, `StrategySpec` |
 | 6. Genetic evolution | `strategy.evolution` | M5 | `Genome`, `Evolver` |
-| 7. Pro backtesting | `backtest/*` (extend to forward test) | M1✅ / M3 | `BacktestResult` |
-| 8. Risk engine | `committee.risk_manager` (extend), `risk.limits` | M1✅ / M3 | `RiskManager` |
-| 9. Explainable AI | `explain/*` | M1✅ | — |
+| 7. Pro backtesting | `backtest/*` (incl. forward test) | M1 / M3 | `BacktestResult` |
+| 8. Risk engine | `committee.risk_manager`, `risk.limits` | M1 / M3 | `RiskManager` |
+| 9. Explainable AI | `explain/*` | M1 | `explain_decision` |
 | 10. Continuous learning | `memory.archive`, `learning.audit` | M7 | `DecisionArchive` |
 | 11. Dashboard | `dashboard/` (Streamlit) | M8 | reads Store + Archive |
 | 12. Memory (RAG) | `memory.rag` | M7 | `MemoryStore` |
 | 13. Scenario simulator | `scenarios` | M4 | `Scenario` |
+| **14. Market Regime Engine** | `regime` | **M4** | `RegimeClassifier`, `RegimeState` |
+| **15. Meta-Learning Engine** | `meta` | **M7** | `MetaLearner`, `RegimePerformanceTable` |
 
-### 2.3 Core data contracts (already established — reuse, don't reinvent)
+### 2.3 Core contracts (the spine every module builds on)
 
 ```python
 # data/models.py
@@ -115,9 +129,10 @@ Evidence(name, detail, impact:[-1,1], value)     # signed, auditable
 AnalystOpinion(analyst, category, direction, confidence:[0,1], evidence, abstained)
 class Analyst(ABC): def analyze(snapshot, context) -> AnalystOpinion
 
-# committee/decision.py
+# committee/decision.py — the auditable, reproducible record
 CommitteeDecision(symbol, timeframe, price, direction, approved, confidence,
-                  blocked_by_risk, reasons, opinions, confidence_report, risk)
+                  blocked_by_risk, reasons, opinions, confidence_report, risk,
+                  regime, strategies_considered, run_manifest)
 
 # execution/interfaces.py  (Protocols — new engines must satisfy these)
 Broker(is_paper, submit, equity)
@@ -125,160 +140,253 @@ RiskGate(allow(decision) -> bool)
 ExecutionEngine(execute(decision, price))
 ```
 
-### 2.4 New contracts to introduce (specified for the builder)
+### 2.4 New contracts introduced by later milestones
 
 ```python
-# data/sources/base.py  — every ingestor implements this
-class DataSource(Protocol):
-    name: str
-    def fetch(self, symbol: str, start, end, **kw) -> pandas.DataFrame: ...
-    def is_offline_capable(self) -> bool: ...   # must have a synthetic/offline mode
+# data/connectors/base.py  (M2) — every data source is a plug-in
+class Connector(ABC):
+    metadata: ConnectorMetadata
+    def fetch(self, req: FetchRequest) -> FetchResult: ...
+    def synthetic(self, req: FetchRequest) -> FetchResult: ...   # offline (I6)
+    def healthcheck(self) -> HealthStatus: ...
 
-# data/store.py — persistence abstraction (Timescale in prod, DuckDB/Parquet offline)
+# data/store.py (M2) — tiered persistence (Timescale prod, DuckDB/Parquet offline)
 class Store(Protocol):
-    def write(self, table: str, df) -> int: ...
-    def read(self, table: str, symbol=None, start=None, end=None) -> "DataFrame": ...
-    def upsert(self, table: str, df, keys: list[str]) -> int: ...
+    def write(self, tier, table, df) -> int: ...
+    def upsert(self, tier, table, df, keys) -> int: ...          # idempotent
+    def read(self, tier, table, symbol=None, start=None, end=None) -> DataFrame: ...
 
-# anomaly/base.py
+# data/featurestore.py (M2) — point-in-time correct reads (I2)
+class FeatureStore:
+    def as_of(self, symbol, at, features) -> dict: ...           # never event_time > at
+
+# anomaly/base.py (M4)
 class AnomalyDetector(Protocol):
-    def fit(self, df) -> "AnomalyDetector": ...
-    def score(self, df) -> "Series": ...        # higher = more anomalous
-    def flags(self, df) -> "Series[bool]": ...
+    def fit(self, df): ...
+    def score(self, df) -> Series: ...          # higher = more anomalous
+    def flags(self, df) -> Series[bool]: ...
 
-# strategy/base.py
+# regime/base.py (M4) — classify the market state
+class RegimeState:                              # explainable classification
+    label: str                                  # TREND_UP|TREND_DOWN|RANGE|HIGH_VOL|LOW_VOL|MACRO_EVENT|CRISIS
+    probabilities: dict[str, float]
+    features: dict[str, float]                  # ADX, realised vol, Hurst, event flags…
+    evidence: list[Evidence]
+class RegimeClassifier(Protocol):
+    def classify(self, snapshot: MarketSnapshot) -> RegimeState: ...
+
+# strategy/base.py (M5)
 @dataclass
-class StrategySpec: name; params: dict; indicators: list[str]; rationale: str
+class StrategySpec: name; version; params: dict; indicators: list[str]; rationale: str
 class Strategy(Protocol):
     spec: StrategySpec
-    def signals(self, ohlcv) -> "Series[float]"   # target position -1..1, no look-ahead
+    def signals(self, ohlcv) -> Series[float]   # target position -1..1, no look-ahead
 
-# memory/base.py
+# meta/base.py (M7) — learn which strategy FAMILIES work in which REGIME
+class RegimePerformanceTable:                   # (family, regime) -> validated stats
+    def record(self, family, regime, metrics): ...
+    def validated(self, regime, bar) -> list[str]: ...   # families cleared for a regime
+class MetaLearner(Protocol):
+    def select(self, regime: RegimeState, universe: list[Strategy]) -> list[Strategy]: ...
+    def update(self, archive) -> None: ...      # continuous learning from outcomes
+
+# memory/base.py (M7)
 class MemoryStore(Protocol):
     def add(self, doc: dict) -> str: ...
-    def query(self, text: str, k: int = 5, filters: dict | None = None) -> list[dict]: ...
+    def query(self, text, k=5, filters=None) -> list[dict]: ...
 ```
 
-Everything above is designed so an **LLM-backed analyst**, a **live broker**, a
-**new data source**, or a **generated strategy** slots in without touching the
-committee.
+Everything is designed so an **LLM-backed analyst**, a **live broker**, a **new
+data source**, a **generated strategy**, a **new regime classifier** or a
+**meta-learning policy** slots in without touching the committee (I7).
 
 ---
 
-## 3. Tech stack (decisions + rationale)
+## 3. Agent roles & orchestration
+
+The multi-agent engine mirrors how a discretionary fund's investment committee
+works. Each agent is a self-contained unit with one job; they are composed by the
+orchestrator, not hard-wired to each other.
+
+| Agent | Package | Role | Output |
+| ----- | ------- | ---- | ------ |
+| **Chair / President** (the "CEO") | `committee.chair` | Synthesises all inputs, applies the decision hierarchy, renders the final call. | `CommitteeDecision` |
+| Technical Analyst | `committee.analysts` | Trend/momentum/mean-reversion from OHLCV + order-flow. | `AnalystOpinion` |
+| Fundamental Analyst | `committee.analysts` | Derivatives structure (funding, OI, basis, L/S). | `AnalystOpinion` |
+| Macro Analyst | `committee.analysts` | DXY, rates, CPI/PPI/NFP, FOMC regime. | `AnalystOpinion` |
+| Sentiment Analyst | `committee.analysts` | Social + news sentiment, crowd positioning. | `AnalystOpinion` |
+| On-chain Analyst | `committee.analysts` | Exchange flows, whales, stablecoins, institutional wallets. | `AnalystOpinion` |
+| Statistical Analyst | `committee.analysts` | Regime-aware statistical edges; consumes selected strategies' signals. | `AnalystOpinion` |
+| **Risk Manager** | `committee.risk_manager` | Screens the trade; can **veto** (absolute, I5). | `RiskAssessment` |
+| **Auditor** | `learning.audit` | Post-hoc: mines closed trades for what failed and why; proposes weight/strategy adjustments. | audit report |
+| **Executor** | `execution` + `paper` | Routes an approved decision to the **paper** broker only (I1). | `TradeRecord` |
+
+### Decision hierarchy (the Chair's rules, in order)
+
+1. **Regime gate** — if the Regime Engine reports an untradeable regime (e.g.
+   `CRISIS` with no validated families), stand down.
+2. **Risk veto** — any Risk Manager veto blocks the trade → `FLAT` (I5).
+3. **Evidence threshold** — trade only if composite confidence *and* agreement
+   clear their thresholds.
+4. Otherwise **stand down** (insufficient evidence). Standing down is a valid,
+   logged outcome — not a failure.
+
+### Debate protocol (M6, optional)
+
+Default (M1): analysts run independently, the confidence model aggregates, the
+Chair decides — simple and fully deterministic. Optional (M6, LangGraph or a
+plain-Python loop): each analyst sees a summary of peers and may revise **once**
+before the Chair decides. The debate must still produce the same
+`CommitteeDecision` type and honour the same hierarchy (regime gate, then veto,
+then threshold).
+
+---
+
+## 4. The regime-aware decision flow (target state)
+
+This is the flow that makes the platform "learn what works when", not "find one
+winner". Read it top to bottom.
+
+```
+DataLake.snapshot(symbol, tf, at)                 # M2: point-in-time multi-channel
+   │
+   ├─ AnomalyDetector.flags()                     # M4: unusual conditions as context
+   │
+   ├─ RegimeClassifier.classify()  ──▶ RegimeState# M4: what market are we in? (explainable)
+   │
+   ├─ MetaLearner.select(regime, universe)        # M7: ONLY strategies validated for THIS regime
+   │        └─ selected strategies emit signals   # M5: feed the Statistical Analyst / spawn analysts
+   │
+   └─ InvestmentCommittee.deliberate(snapshot, ctx={regime, anomalies, signals})
+            │  analysts → ConfidenceModel → RiskManager
+            └─ Chair.decide()   [regime gate ▶ risk veto ▶ threshold]
+                     │
+                     ├─ explain_decision()         # M1: narrative + reasons + risks
+                     ├─ DecisionArchive.record()    # M7: dossier (regime, strategies, evidence)
+                     │        └─ later: outcome ▶ MetaLearner.update() + Auditor  # closes the loop
+                     └─ PaperExecutionEngine.execute()   # paper only (I1)
+```
+
+The loop is closed: outcomes recorded in the archive feed the Meta-Learner (which
+strategy families to trust per regime) and the Auditor (which components to fix).
+Every arrow's inputs and outputs are serialised into the decision's `run_manifest`
+so the whole path is reproducible (I8).
+
+---
+
+## 5. Tech stack (decisions + rationale)
 
 | Concern | Choice | Rationale / offline fallback |
 | ------- | ------ | ---------------------------- |
 | Language | Python ≥3.10 | matches vision + ecosystem |
-| Core deps | numpy, pandas | already in use; keep the core dependency-light |
-| Time-series store | **TimescaleDB** (hot) | SQL + hypertables for tick/OHLCV; offline fallback **DuckDB + Parquet** |
-| Cache / bus | **Redis** | quotes cache, pub/sub; offline fallback = in-process dict/queue |
-| Market/derivs data | **ccxt** (read-only) | already wired; synthetic generator when absent |
-| On-chain / macro / sentiment | pluggable `DataSource`s | each ships a synthetic offline mode (I6) |
-| Backtesting | in-house vectorised (done) + **vectorbt** (optional, heavy scans) | in-house always available |
-| Perf reporting | **QuantStats** (optional) | our `metrics.py` is the always-on baseline |
-| ML / anomaly | scikit-learn, **PyOD**, **Prophet** | Isolation Forest baseline is sklearn-only |
-| Optimisation / GA | **Optuna**, **DEAP**, Nevergrad | GA baseline implemented without heavy deps first |
-| Agent orchestration | **LangGraph** (optional) for debate | committee works without it; LangGraph is an alt orchestrator |
-| LLM access | **Claude** (primary), OpenRouter/Ollama pluggable | via a thin `LLMClient` port; rule-based analysts remain the offline default |
-| Dashboard | **Streamlit** (primary), Grafana for infra metrics | reads Store + DecisionArchive |
-| Experiment tracking | **MLflow** | logs backtests/GA runs; local file backend offline |
+| Core deps | numpy, pandas | keep the core dependency-light |
+| Time-series store | **TimescaleDB** (hot) | SQL + hypertables; offline **DuckDB + Parquet** |
+| Cache / bus | **Redis** | quotes cache, pub/sub; offline in-process |
+| Market/derivs data | **ccxt** (read-only) | synthetic generator when absent |
+| On-chain/macro/sentiment/news | pluggable `Connector`s | each ships a synthetic offline mode (I6) |
+| Backtesting | in-house vectorised + **vectorbt** (optional) | in-house always available |
+| Perf reporting | **QuantStats** (optional) | our `metrics.py` is the baseline |
+| ML / anomaly | scikit-learn, **PyOD**, **Prophet** | Isolation Forest / z-score baseline |
+| Regime classification | scikit-learn (HMM/GMM/rules), **hmmlearn** (opt) | rule + statistical baseline, no heavy dep |
+| Optimisation / GA | **Optuna**, **DEAP**, Nevergrad | dependency-free GA baseline first |
+| Agent orchestration | **LangGraph** (optional) | committee works without it |
+| LLM access | **Claude** (primary), OpenRouter/Ollama pluggable | via `LLMClient` port; rule-based default |
+| Dashboard | **Streamlit** (primary), Grafana for infra | reads Store + Archive |
+| Experiment tracking | **MLflow** | logs backtests/GA/meta runs; local file offline |
 | LLM observability | **Langfuse** (optional) | traces analyst/LLM calls |
 | Infra metrics | Prometheus + Grafana | scrape ingestors + paper engine |
+| Automation | **n8n**, GitHub Actions | scheduled ingestion / CI |
 | Packaging | Docker + docker-compose | one command spins Timescale+Redis+dashboard |
-| CI | GitHub Actions | run `pytest` offline on every push |
 
-> **Dependency policy.** The **core** (`data`, `committee`, `backtest`, `paper`,
-> `explain`, `execution`) stays importable with only numpy+pandas. Everything
-> heavier lives behind optional extras (`[data]`, `[research]`, `[ml]`, `[llm]`,
-> `[dashboard]`) and lazy imports. This preserves I6.
+> **Dependency policy.** The **core** stays importable with only numpy+pandas.
+> Everything heavier lives behind optional extras (`[data]`, `[research]`, `[ml]`,
+> `[llm]`, `[dashboard]`, `[infra]`) and lazy imports. This preserves I6.
 
 ---
 
-## 4. Repository evolution
+## 6. Non-functional requirements
+
+These are contractual: every milestone must keep them true, and the builder must
+add tests/checks that assert them where applicable.
+
+| Area | Requirement |
+| ---- | ----------- |
+| **Reproducibility (I8)** | Every backtest/decision is replayable to the same result. Seeds are explicit; data schema versions, strategy spec versions and model artifact hashes are pinned into a `run_manifest` stored with the decision. No wall-clock or unseeded randomness in research paths. |
+| **Latency** | Research/offline: a single committee decision on a warm snapshot completes in < 250 ms (rule-based analysts). LLM analysts (M6) are async and bounded by a per-call timeout with graceful abstention on breach. |
+| **Throughput** | Ingestion sustains all configured connectors at their cadence for the full symbol universe without falling behind (monitored via freshness/lag; see Data Infra §5). |
+| **Data retention & tiering** | Raw tier retained per policy (default: keep all; configurable TTL); curated + features retained indefinitely. Partitioned by symbol/date for prune-friendly reads. |
+| **Availability / 24-7** | Ingestion runs continuously; a failing connector degrades gracefully (circuit breaker) without stopping others. Scheduler + gap-repair recover missed windows on restart (watermarks). |
+| **Backups & recovery** | Store artifacts (Parquet/Timescale) are backupable; the lake can be rebuilt from raw tier + connector replays. Watermarks make ingestion resumable after a crash. |
+| **Security & secrets** | No secret in code or git. Keys only via env/secret manager, only for optional live-data connectors. Live execution stays disabled (I1). Read-only market access by default. |
+| **Cost** | Offline research path has zero external cost. LLM and paid-data usage is opt-in, per-call metered, and logged (MLflow/Langfuse) so cost is attributable. |
+| **Observability** | Every connector reports health (freshness, success rate, lag); every decision and backtest is logged and queryable; dashboards surface equity/drawdown/risk and "AI thinking" in real time. |
+| **Testability** | Whole suite runs offline, deterministically, with no keys, fast (target < ~5 s for the core). Each invariant has at least one guarding test. |
+
+---
+
+## 7. Repository evolution
 
 ```
 quant/
-├── pyproject.toml            # add extras: ml, llm, dashboard, infra
-├── docker-compose.yml        # NEW (M2): timescaledb + redis + dashboard
-├── ARCHITECTURE.md           # this file
-├── BUILD_PLAN.md             # work packages for Fable 5
+├── pyproject.toml            # extras: data, research, ml, llm, dashboard, infra
+├── docker-compose.yml        # timescaledb + redis + dashboard
+├── ARCHITECTURE.md · BUILD_PLAN.md · docs/DATA_INFRASTRUCTURE.md
 ├── quantos/
-│   ├── data/
-│   │   ├── collector.py            # exists
-│   │   ├── models.py               # exists
-│   │   ├── store.py                # NEW  Store + DuckDBStore + TimescaleStore
-│   │   ├── lake.py                 # NEW  DataLake facade (orchestrates sources→store)
-│   │   └── sources/                # NEW  one module per feed, all DataSource
-│   │       ├── base.py  market.py  derivatives.py  onchain.py
-│   │       ├── macro.py  sentiment.py  news.py
-│   ├── features/                   # exists (extend with derivative features)
-│   ├── committee/                  # exists (add committee/llm.py in M6)
-│   ├── anomaly/                    # NEW (M4)
-│   ├── strategy/                   # NEW (M5)  base, generator, lab, evolution
-│   ├── memory/                     # NEW (M7)  archive, rag, base
-│   ├── learning/                   # NEW (M7)  audit
-│   ├── scenarios/                  # NEW (M4)  library + simulator
-│   ├── explain/  backtest/  paper/  execution/   # exist
-│   └── dashboard/                  # NEW (M8)  Streamlit app
-└── tests/                          # mirror every new package, offline & deterministic
+│   ├── data/  schema/ store/ connectors/ ingest/ quality/ catalog.py featurestore.py lake.py
+│   ├── features/                  # indicators, regime features
+│   ├── committee/                 # analysts, confidence, risk_manager, chair, committee, llm, debate
+│   ├── anomaly/                   # detectors (M4)
+│   ├── regime/                    # RegimeClassifier + RegimeState (M4)
+│   ├── strategy/                  # base, generator, lab, evolution (M5)
+│   ├── meta/                      # MetaLearner + RegimePerformanceTable (M7)
+│   ├── memory/                    # archive, rag (M7)
+│   ├── learning/                  # audit / Auditor (M7)
+│   ├── scenarios/                 # library + simulator (M4)
+│   ├── explain/  backtest/  paper/  execution/   # M1/M3
+│   └── dashboard/                 # Streamlit (M8)
+└── tests/                         # mirror every package, offline & deterministic
 ```
 
 ---
 
-## 5. Milestone roadmap (dependency-ordered)
+## 8. Milestone roadmap (dependency-ordered)
 
 ```
-M1 ✅ Investment Committee vertical slice            [DONE]
-M2    Data Infrastructure (professional)             → unlocks real data for all
-      └─ detailed design: docs/DATA_INFRASTRUCTURE.md (connector framework,
-         schema versioning, validation, resilient 24/7 ingestion, feature store)
-M3    Risk Engine hardening + Forward test           → completes the validation funnel
-M4    Anomaly detection + Scenario simulator          (depend on M2)
-M5    Strategy generator + Genetic evolution + Lab    (depend on M2, M3)
-M6    LLM-backed analysts + LangGraph debate          (depend on M1; optional infra)
-M7    Decision Archive + RAG memory + Continuous audit(depend on M2, M5)
-M8    Dashboard + Observability (MLflow/Prometheus)   (depend on M2, M3, M7)
+M1  Investment Committee (analysts, confidence, risk veto, chair, explain,
+    backtest→WF→MC, paper) — the differentiator, BUILT FIRST
+M2  Data Infrastructure (professional: connectors, schema, store, ingest,
+    feature store) — unlocks real multi-channel data for everything
+M3  Risk Engine hardening + Forward test — completes the validation funnel
+M4  Market State Intelligence: Anomaly detection + Market Regime Engine +
+    Scenario simulator
+M5  Strategy Lab: AI strategy generator + genetic evolution
+M6  LLM-backed analysts + LangGraph debate
+M7  Memory & Learning: Decision Archive + RAG memory + Continuous audit +
+    Meta-Learning Engine (regime × strategy-family selection)
+M8  Dashboard + Observability (MLflow / Prometheus / Grafana)
 ```
 
-Each milestone is a set of **work packages** (WPs) in `BUILD_PLAN.md`. A WP is
-sized to be built and tested in one focused pass, ships with tests, and preserves
-every invariant in §0.
+Regime-aware strategy selection comes online when M4 (regimes) and M7 (meta) are
+both built; until then the committee runs regime-agnostic. Each milestone is a set
+of **work packages** in `BUILD_PLAN.md`, each sized to build+test in one pass and
+preserving every invariant in §0.
 
 ---
 
-## 6. Cross-cutting conventions (bind on the builder)
+## 9. Cross-cutting conventions (bind on the builder)
 
-1. **Match the existing code.** Same docstring density, dataclasses for records,
-   Protocols for ports, `as_dict()` for serialisation, type hints throughout.
-2. **Offline-first.** Every new `DataSource`/module ships a deterministic
-   synthetic path and a test that runs with no network and no keys.
-3. **Tests are part of the WP.** No WP is "done" without deterministic tests that
-   assert its acceptance criteria. Target: the suite stays green and fast (<5s).
+1. **House style.** dataclasses for records, `Protocol`/ABC for ports, `as_dict()`
+   for serialisation, full type hints, docstrings at real density.
+2. **Offline-first.** Every module ships a deterministic synthetic path + a test
+   that runs with no network and no keys.
+3. **Tests are part of the WP.** No WP is done without deterministic tests
+   asserting its acceptance criteria; the suite stays green and fast.
 4. **No secrets in code or git.** New config via `Settings` + `.env.example`.
-5. **Preserve safety.** If a WP touches execution, it must keep I1 provably true
-   (add/extend a test that asserts `LiveExecutionDisabled`).
-6. **Small, reviewable commits** per WP with the WP id in the message.
-7. **Docs.** Update the module table here and the README when a WP lands.
-
----
-
-## 7. How a decision flows end-to-end (target state)
-
-```
-DataLake.snapshot(symbol, tf)                    # M2: real multi-channel snapshot
-   └─ AnomalyDetector flags regime               # M4: attach anomaly context
-        └─ InvestmentCommittee.deliberate()      # M1: analysts → confidence → risk
-             ├─ (M6) LLM analysts join the panel
-             └─ Chair.decide()  ── RiskManager veto ─▶ blocked?
-                  └─ CommitteeDecision (auditable)
-                       ├─ explain_decision()      # M1: narrative
-                       ├─ DecisionArchive.record() # M7: dossier + outcome later
-                       └─ PaperExecutionEngine.execute()  # paper only (I1)
-StrategyLab (M5) continuously invents/backtests/evolves strategies whose signals
-can feed the StatisticalAnalyst or spawn new analysts.
-Dashboard (M8) renders equity, drawdown, Sharpe, open positions, "AI thinking".
-```
+5. **Preserve safety.** Touching execution keeps I1 provably true (guarding test).
+6. **Reproducible (I8).** Seeded everywhere; pin versions/artifacts into the
+   decision `run_manifest`.
+7. **Small, reviewable commits** per WP with the WP id in the message.
+8. **Docs.** Update the module table (§2.2) and README when a WP lands.
 
 This is the architecture. Build it in the order and shape defined by
 `BUILD_PLAN.md`.
