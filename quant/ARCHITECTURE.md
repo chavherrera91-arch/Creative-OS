@@ -53,17 +53,16 @@ definition.
 
 ## 1. Current state
 
-**Nothing is implemented.** The repository branch contains only the architecture:
+**Milestone 1 (Investment Committee) is shipped** — WP-0 and WP-1.1→1.8 are
+implemented under `quant/quantos/` with a green, offline, deterministic test
+suite (`cd quant && python -m pytest`): core types, causal indicators, five
+specialist analysts, confidence aggregation, risk veto, chair, explainability,
+the backtest→walk-forward→Monte Carlo funnel with mandatory baselines, paper
+trading, hard-disabled live execution, and the CLI
+(`python -m quantos.cli decide|backtest|walkforward|montecarlo|paper`).
 
-```
-quant/ARCHITECTURE.md            ← this file (master design)
-quant/BUILD_PLAN.md              ← work packages for Fable 5
-quant/docs/DATA_INFRASTRUCTURE.md← professional Data Lake design + schema catalog
-```
-
-Fable 5 builds the system milestone by milestone, starting with **M1 — the
-Investment Committee** (the differentiator), each work package shipping with
-tests and preserving every invariant in §0.
+Fable 5 continues milestone by milestone from **M2 — Data Infrastructure**,
+each work package shipping with tests and preserving every invariant in §0.
 
 ---
 
@@ -107,14 +106,14 @@ tests and preserving every invariant in §0.
 | Vision module | Package(s) | Milestone | Key contract |
 | ------------- | ---------- | --------- | ------------ |
 | 1. Data Lake | `data.schema`, `data.store`, `data.connectors`, `data.ingest`, `data.lake`, `data.featurestore` | M2 | `Connector`, `Store`, `Schema` |
-| 2. Multi-agent engine | `committee/*`, `committee.llm`, `committee.debate` | M1 / M6 | `Analyst`, `Chair` |
-| 3. Confidence system | `committee.confidence` | M1 | `ConfidenceModel` |
+| 2. Multi-agent engine | `committee/*`, `committee.llm`, `committee.debate` | **M1 ✅ shipped** / M6 | `Analyst`, `Chair` |
+| 3. Confidence system | `committee.confidence` | **M1 ✅ shipped** | `ConfidenceModel` |
 | 4. Anomaly detector | `anomaly` | M4 | `AnomalyDetector` |
 | 5. Strategy generator | `strategy.generator`, `strategy.lab` | M5 | `Strategy`, `StrategySpec` |
 | 6. Genetic evolution | `strategy.evolution` | M5 | `Genome`, `Evolver` |
-| 7. Pro backtesting | `backtest/*` (incl. forward test) | M1 / M3 | `BacktestResult` |
-| 8. Risk engine | `committee.risk_manager`, `risk.limits` | M1 / M3 | `RiskManager` |
-| 9. Explainable AI | `explain/*` | M1 | `explain_decision` |
+| 7. Pro backtesting | `backtest/*` (incl. forward test) | **M1 ✅ shipped** / M3 | `BacktestResult` |
+| 8. Risk engine | `committee.risk_manager`, `risk.limits` | **M1 ✅ shipped** / M3 | `RiskManager` |
+| 9. Explainable AI | `explain/*` | **M1 ✅ shipped** | `explain_decision` |
 | 10. Continuous learning | `memory.archive`, `learning.audit` | M7 | `DecisionArchive` |
 | 11. Dashboard | `dashboard/` (Streamlit) | M8 | reads Store + Archive |
 | 12. Memory (RAG) | `memory.rag` | M7 | `MemoryStore` |
