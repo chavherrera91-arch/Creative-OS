@@ -47,6 +47,7 @@ definition.
 | I6 | **Runs offline, no secrets.** Every module has a deterministic offline path; keys are never required for research. | synthetic fallbacks, `.env.example`. |
 | I7 | **Interfaces before implementations.** New capabilities plug into existing Protocols without refactoring the core. | `Analyst`, `Broker`, `RiskGate`, `ExecutionEngine`, `DataSource`/`Connector`, `Strategy`, `RegimeClassifier`, `MetaLearner`. |
 | I8 | **Reproducibility.** Any decision or backtest can be replayed to the same result: seeds are fixed, and data/schema/strategy/model artifacts are versioned and pinned in the record. | seed plumbing, `SchemaRegistry`, `StrategySpec.version`, run manifests. |
+| I9 | **Statistical honesty.** No single-split backtest is ever presented as evidence on its own. Every reported edge is corrected for multiple testing and validated with purged, embargoed out-of-sample CV; a Deflated Sharpe Ratio / PBO accompanies any strategy that ships. | `backtest.validation` (deflated Sharpe, PBO, CPCV), Strategy Lab ranking (module 25). |
 
 ---
 
@@ -129,6 +130,8 @@ tests and preserving every invariant in §0.
 | **22. Portfolio Intelligence** | `portfolio` | **M9** | `PortfolioAnalyzer` |
 | **23. Meta-Risk + Hypothesis Gen** | `risk.meta`, `research.hypotheses` | **M9** | `MetaRisk`, `HypothesisGenerator` |
 | **24. Hermes — Communications Agent** | `hermes` | **M8** | `Notifier`, `Channel`, `HermesAgent` |
+| **25. Statistical Validation** (anti-overfitting) | `backtest.validation` | **M3** | `deflated_sharpe`, `pbo`, `CombinatorialPurgedCV` |
+| **26. Execution Realism + Position Sizing** | `execution.costs`, `sizing` | **M3** | `CostModel`, `PositionSizer` |
 
 ### 2.3 Core contracts (the spine every module builds on)
 
@@ -271,6 +274,22 @@ class HermesAgent(Protocol):
     # existing explanation — it does not invent new analysis.
     def on_event(self, event: "HermesEvent") -> None: ...   # decision/veto/regime/anomaly/digest
     def answer(self, question: str) -> str: ...             # NL query over the archive
+
+# backtest/validation.py (M3) — anti-overfitting statistics (module 25, I9)
+def deflated_sharpe(sharpe, n_trials, skew, kurtosis, n_obs) -> float: ...  # DSR
+def pbo(is_returns, oos_returns) -> float: ...              # Prob. of Backtest Overfitting
+class CombinatorialPurgedCV:                                # CPCV with purge + embargo
+    def split(self, X, label_times, embargo): ...           # no leakage across folds
+
+# execution/costs.py (M3) — realistic fills (module 26)
+class CostModel(Protocol):
+    def fill(self, side, qty, price, book=None, regime=None) -> "Fill": ...
+    # fee + size-dependent slippage + market impact (+ latency/queue for L2)
+
+# sizing/base.py (M3) — how MUCH, not just direction (module 26)
+class PositionSizer(Protocol):
+    def size(self, decision, portfolio, vol, corr) -> float: ...
+    # vol-targeting | fractional-Kelly | risk-parity; bounded by RiskManager limits
 ```
 
 Everything is designed so an **LLM-backed analyst**, a **live broker**, a **new
@@ -468,7 +487,8 @@ quant/
 │   ├── research/                  # experiments registry, hypotheses (M7/M9)
 │   ├── risk/                      # limits (M3), meta-risk (M9)
 │   ├── committee/                 # + challenger (M6), calibration (M7)
-│   ├── explain/  backtest/  paper/  execution/   # M1/M3
+│   ├── explain/  backtest/ (+ validation)  paper/  execution/ (+ costs)  # M1/M3
+│   ├── sizing/                    # PositionSizer (M3)
 │   ├── hermes/                    # comms agent: channels + notifier (M8, read-only)
 │   └── dashboard/                 # Streamlit (M8)
 └── tests/                         # mirror every package, offline & deterministic
@@ -521,6 +541,25 @@ invariant in §0.
    decision `run_manifest`.
 7. **Small, reviewable commits** per WP with the WP id in the message.
 8. **Docs.** Update the module table (§2.2) and README when a WP lands.
+
+### 9.1 Engineering standards (enforced from WP-0)
+
+Quality tooling is not optional garnish — it is what keeps a 26-module system
+from rotting as it grows. All of it runs offline and in CI.
+
+- **CI (GitHub Actions):** run the full offline suite on every push; a red suite
+  blocks the merge. This is the outermost guardrail on every invariant.
+- **Lint + format:** `ruff` (lint + format), enforced in CI and via `pre-commit`.
+- **Types:** `mypy` on `quantos/` (public interfaces fully typed); CI-enforced.
+- **Property-based tests (`hypothesis`)** for the hard invariants — I2 (no
+  look-ahead) and I8 (reproducibility) are asserted over generated inputs, not a
+  single fixture. Example: for random valid OHLCV, a signal computed at bar *t*
+  must not change when bars > *t* are perturbed.
+- **Golden / regression tests:** a pinned decision and a pinned backtest must
+  replay bit-for-bit (I8); a diff fails CI.
+- **Benchmark harness:** every backtest reports its metrics **alongside
+  buy-and-hold and a random baseline** — a strategy that can't beat both is not
+  evidence of an edge (guards against self-deception, complements I9).
 
 This is the architecture. Build it in the order and shape defined by
 `BUILD_PLAN.md`.

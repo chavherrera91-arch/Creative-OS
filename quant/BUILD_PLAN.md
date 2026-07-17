@@ -26,6 +26,24 @@ invariants intact + suite green*.
 
 ---
 
+# WP-0 — Engineering standards (do this before Milestone 1)
+
+Set up the quality guardrails once, up front (ARCHITECTURE §9.1). Cheap now,
+priceless across 26 modules.
+
+- **Files:** `.github/workflows/ci.yml`, `.pre-commit-config.yaml`, `ruff`/`mypy`
+  config in `pyproject.toml`, `tests/test_invariants_property.py` (skeleton).
+- **Build:** GitHub Actions running `ruff check`, `mypy quantos`, and
+  `python -m pytest` on every push (offline, no keys); `pre-commit` mirroring lint
+  + format; a `hypothesis` scaffold for the no-look-ahead (I2) and reproducibility
+  (I8) property tests that later WPs fill in; a helper `assert_reproducible(...)`
+  and a benchmark helper `vs_baselines(returns)` (buy-and-hold + random) that the
+  backtest WPs reuse.
+- **Acceptance:** CI is green on an empty/one-module repo; `ruff`, `mypy` and
+  `pytest` all run in CI; the property-test and benchmark scaffolds import.
+
+---
+
 # Milestone 1 — Investment Committee  ⭐ build this first
 
 Goal: the platform's differentiator, end-to-end and offline — specialist analysts
@@ -101,7 +119,9 @@ Dependency order within M1: 1.1 → 1.2 → 1.3 → 1.4 → 1.5 → 1.6 → 1.7 
   committee-driven signal generation; walk-forward OOS folds; Monte Carlo
   resampling with percentiles + prob-of-loss.
 - **Acceptance:** flat positions → ~0 return; a late-only position cannot affect
-  prior bars (no look-ahead); metrics finite; MC percentiles ordered.
+  prior bars (no look-ahead); metrics finite; MC percentiles ordered; every
+  backtest reports metrics **alongside buy-and-hold and a random baseline**
+  (`vs_baselines`, WP-0) so an edge is never claimed without beating both.
 
 ### WP-1.8 — Paper trading + disabled execution interfaces + CLI
 - **Files:** `quantos/paper/broker.py` (`PaperBroker`, `TradeRecord` dossier),
@@ -228,7 +248,11 @@ is green/offline/fast, and adding a source provably needs **zero core edits**.
 
 ---
 
-# Milestone 3 — Risk Engine hardening + Forward test
+# Milestone 3 — Validation rigor: Risk + Forward + Anti-overfitting + Sizing
+
+Goal: make the numbers trustworthy. Harden risk, complete the forward-test bridge,
+and add the three things that separate real quant from data-mined noise:
+anti-overfitting statistics (I9), realistic execution, and position sizing.
 
 ### WP-3.1 — Risk limit library
 - **Files:** `quantos/risk/limits.py`, `tests/test_risk_limits.py`.
@@ -245,6 +269,38 @@ is green/offline/fast, and adding a source provably needs **zero core edits**.
   forward bar-by-bar feeding the paper engine, producing an equity curve — the
   bridge between walk-forward and paper trading in the funnel (I1 preserved).
 - **Acceptance:** deterministic offline run; no look-ahead (I2); only paper.
+
+### WP-3.3 — Statistical validation (anti-overfitting)  (module 25, I9)
+- **Files:** `quantos/backtest/validation.py`, `tests/test_validation.py`.
+- **Build:** `deflated_sharpe(...)` (Deflated Sharpe Ratio accounting for the
+  number of trials + non-normality), `pbo(...)` (Probability of Backtest
+  Overfitting), and `CombinatorialPurgedCV` (combinatorial purged cross-validation
+  with an embargo) so overlapping-label leakage is impossible. The Strategy Lab
+  (M5) ranking must consume these — a strategy without OOS validation and an
+  acceptable DSR cannot pass.
+- **Acceptance:** DSR shrinks toward 0 as `n_trials` grows on a fixed Sharpe;
+  PBO is high for an over-fit selection and low for a genuine one on seeded data;
+  CPCV folds never share overlapping label windows (leakage test).
+
+### WP-3.4 — Execution realism (cost model)  (module 26)
+- **Files:** `quantos/execution/costs.py` (`CostModel`, `Fill`),
+  wired into `PaperBroker` and the backtest, `tests/test_costs.py`.
+- **Build:** replace the flat fee/slippage with a `CostModel`: fee + size-dependent
+  slippage + market impact (+ optional latency/queue for L2). Regime/liquidity
+  aware. The backtest and paper broker both route fills through it.
+- **Acceptance:** larger orders incur more slippage/impact; a zero-cost model
+  reproduces the old flat behaviour (back-compatible); still no look-ahead (I2).
+
+### WP-3.5 — Position sizing / capital allocation  (module 26)
+- **Files:** `quantos/sizing/base.py` (`PositionSizer`),
+  `quantos/sizing/sizers.py` (`VolTargetSizer`, `FractionalKellySizer`,
+  `RiskParitySizer`), `tests/test_sizing.py`.
+- **Build:** turn a `CommitteeDecision` (direction + confidence) into a **size**,
+  bounded by the Risk Manager's limits and informed by volatility/correlation
+  (Portfolio Intelligence, M9). The Chair/executor consults the sizer; sizing is
+  never allowed to exceed a risk limit (I5 still absolute).
+- **Acceptance:** vol-targeting reduces size as volatility rises; a sizer can
+  never breach a configured max-position limit; deterministic for a fixed seed.
 
 ---
 
