@@ -73,6 +73,7 @@ tests and preserving every invariant in §0.
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │  PRESENTATION      Dashboard (Streamlit)  ·  CLI  ·  REST API (opt)    │
+│                    Hermes — comms agent (push alerts + conversational)  │
 ├──────────────────────────────────────────────────────────────────────┤
 │  ORCHESTRATION     RegimeClassifier → MetaLearner.select →             │
 │                    InvestmentCommittee  ·  StrategyLab  ·  Scheduler   │
@@ -127,6 +128,7 @@ tests and preserving every invariant in §0.
 | **21. Market Simulator** (real-time replay) | `scenarios.simulator` (extend), `sim` | **M4 / M9** | `MarketSimulator` |
 | **22. Portfolio Intelligence** | `portfolio` | **M9** | `PortfolioAnalyzer` |
 | **23. Meta-Risk + Hypothesis Gen** | `risk.meta`, `research.hypotheses` | **M9** | `MetaRisk`, `HypothesisGenerator` |
+| **24. Hermes — Communications Agent** | `hermes` | **M8** | `Notifier`, `Channel`, `HermesAgent` |
 
 ### 2.3 Core contracts (the spine every module builds on)
 
@@ -255,6 +257,20 @@ class HypothesisGenerator(Protocol):
 class SelfEvaluator(Protocol):
     def evaluate(self, archive, meta, health) -> SelfEvalReport: ...
     # which modules/datasets/indicators/agents are decaying?
+
+# hermes/base.py (M8) — the messenger: outbound push + inbound queries (module 24)
+class Channel(Protocol):                        # Telegram/Discord/email/console
+    name: str
+    def send(self, message: str, attachments=None) -> None: ...
+    def poll(self) -> list["InboundMessage"]: ...   # optional (conversational)
+class Notifier(Protocol):
+    def notify(self, event: "HermesEvent", channels=None) -> None: ...
+class HermesAgent(Protocol):
+    # STRICTLY read-only: informs and answers; never places an order or changes
+    # a limit (I1). Answers by querying DecisionArchive/Knowledge/RAG, using the
+    # existing explanation — it does not invent new analysis.
+    def on_event(self, event: "HermesEvent") -> None: ...   # decision/veto/regime/anomaly/digest
+    def answer(self, question: str) -> str: ...             # NL query over the archive
 ```
 
 Everything is designed so an **LLM-backed analyst**, a **live broker**, a **new
@@ -338,7 +354,8 @@ DataLake.snapshot(symbol, tf, at)                 # M2: point-in-time multi-chan
                      ├─ DecisionArchive.record()    # M7: dossier (regime, strategies, evidence)
                      │        └─ later: outcome ▶ MetaLearner.update() + Calibrator.fit()
                      │                          + Auditor + Meta-Risk    # closes the loop
-                     └─ PaperExecutionEngine.execute()   # paper only (I1)
+                     ├─ PaperExecutionEngine.execute()   # paper only (I1)
+                     └─ Hermes.on_event(decision/veto/regime/anomaly)   # M8: push alert (read-only)
 ```
 
 The loop is closed: outcomes recorded in the archive feed the Meta-Learner (which
@@ -452,6 +469,7 @@ quant/
 │   ├── risk/                      # limits (M3), meta-risk (M9)
 │   ├── committee/                 # + challenger (M6), calibration (M7)
 │   ├── explain/  backtest/  paper/  execution/   # M1/M3
+│   ├── hermes/                    # comms agent: channels + notifier (M8, read-only)
 │   └── dashboard/                 # Streamlit (M8)
 └── tests/                         # mirror every package, offline & deterministic
 ```
@@ -473,7 +491,8 @@ M6  LLM-backed analysts + LangGraph debate
 M7  Memory & Learning: Decision Archive + RAG memory + Continuous audit +
     Meta-Learning Engine (regime × strategy-family selection) +
     Confidence Calibration + Experiment Registry
-M8  Dashboard + Observability (MLflow / Prometheus / Grafana)
+M8  Presentation & Delivery: Dashboard + Hermes (comms agent) + Observability
+    (MLflow / Prometheus / Grafana)
 M9  Advanced Intelligence & Self-Improvement: Knowledge Engine + Portfolio
     Intelligence + Meta-Risk + Self-Evaluation + Hypothesis Generator +
     Market Simulator (real-time replay). Also M6: AI Challenger.

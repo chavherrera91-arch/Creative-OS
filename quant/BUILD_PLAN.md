@@ -493,7 +493,7 @@ each decision.
 
 ---
 
-# Milestone 8 — Dashboard + Observability
+# Milestone 8 — Presentation & Delivery (Dashboard + Hermes + Observability)
 
 ### WP-8.1 — Streamlit dashboard
 - **Files:** `quantos/dashboard/app.py`, `quantos/dashboard/panels.py`,
@@ -513,6 +513,32 @@ each decision.
   lazy-imported.
 - **Acceptance:** logging helper writes to a local MLflow dir in a test; metrics
   module exposes counters without requiring a running Prometheus.
+
+### WP-8.3 — Hermes: communications agent  (module 24)
+- **Files:** `quantos/hermes/base.py` (`Channel`, `Notifier`, `HermesAgent`,
+  `HermesEvent`), `quantos/hermes/channels.py` (a `ConsoleChannel` offline
+  default; `TelegramChannel`/`DiscordChannel`/`EmailChannel` behind extra
+  `[hermes]`, lazy-imported, tokens via env only), `quantos/hermes/agent.py`,
+  `tests/test_hermes.py`.
+- **Build:** two directions.
+  - **Outbound (push):** `Notifier.notify` / `HermesAgent.on_event` render
+    concise alerts for events — approved decision, **Risk Manager veto**, regime
+    change, anomaly flag, daily research digest, new hypothesis — reusing
+    `explain_decision` for the body. Event routing + per-event-type channel
+    config + rate limiting / de-duplication.
+  - **Inbound (conversational):** `HermesAgent.answer(question)` responds to NL
+    queries ("why did it short ETH yesterday?", "what regime now?") by retrieving
+    from the `DecisionArchive` (M7) + RAG memory (+ Knowledge Engine, M9) and
+    returning the **already-recorded** explanation. Uses `LLMClient` (M6) for
+    phrasing; falls back to a templated summary offline with `MockLLMClient`.
+- **Safety (hard):** Hermes is **strictly read-only** — it informs and answers,
+  and can **never** place an order, change a limit, or mutate state (I1). No
+  secrets in code; all channel tokens come from env. A guarding test asserts the
+  agent exposes no execution path.
+- **Acceptance:** an event produces a formatted alert on `ConsoleChannel` offline;
+  `answer("why did decision X happen?")` returns the archived explanation; real
+  channels import lazily and are never required for tests; the read-only guard
+  test passes.
 
 ---
 
