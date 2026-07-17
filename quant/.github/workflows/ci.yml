@@ -1,0 +1,32 @@
+# CI for the quantos platform (ARCHITECTURE §9.1).
+#
+# NOTE: this file lives under quant/.github/ because the build is confined to
+# the quant/ subtree. GitHub Actions only discovers workflows at the repository
+# root — move this file to /.github/workflows/ci.yml (unchanged) to activate it.
+name: quantos-ci
+
+on:
+  push:
+    paths: ["quant/**"]
+  pull_request:
+    paths: ["quant/**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: quant
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install -e ".[dev]" duckdb pyarrow
+      - name: Lint (ruff)
+        run: ruff check . && ruff format --check .
+      - name: Types (mypy)
+        run: mypy quantos
+      - name: Tests (offline, no keys)
+        run: python -m pytest

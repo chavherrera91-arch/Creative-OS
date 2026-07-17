@@ -1,0 +1,17 @@
+# Pre-commit hooks mirroring CI (ARCHITECTURE §9.1).
+# Run from the repo root with:  pre-commit run -c quant/.pre-commit-config.yaml --all-files
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^quant/
+      - id: ruff-format
+        files: ^quant/
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        files: ^quant/quantos/
+        additional_dependencies: [pandas-stubs, numpy]
