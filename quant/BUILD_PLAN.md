@@ -393,6 +393,19 @@ so the Meta-Learner (M7) can map families → regimes.
 - **Acceptance:** debate produces a valid auditable decision offline; risk veto
   still absolute (I5).
 
+### WP-6.4 — AI Challenger (devil's advocate)  (module 17)
+- **Files:** `quantos/committee/challenger.py` (`Challenger`, `ChallengeResult`),
+  integration into the deliberation/debate path, `tests/test_challenger.py`.
+- **Build:** before a provisional decision is finalised, the Challenger argues the
+  opposite side with counter-evidence from the same snapshot/regime. A material
+  objection triggers one more debate round; the decision records whether the
+  objection was decisive (I4). Deterministic rule-based default; optional
+  LLM-backed challenger behind `LLMClient` (M6). The Challenger has **no veto**
+  (that is the Risk Manager's alone, I5) — it only forces reconsideration.
+- **Acceptance:** on a fixture where the Challenger raises a strong counter, a
+  second round runs and the decision explains the objection; a weak counter
+  leaves the decision unchanged; the risk veto remains absolute.
+
 ---
 
 # Milestone 7 — Memory & Learning (archive + RAG + audit + meta-learning)
@@ -456,6 +469,28 @@ each decision.
 - **Acceptance:** on a seeded archive with a known bad analyst, the audit
   identifies it and proposes lowering its weight.
 
+### WP-7.6 — Confidence Calibration  (module 18)
+- **Files:** `quantos/committee/calibration.py` (`ConfidenceCalibrator`),
+  wired into the confidence pipeline (raw → calibrated before the Chair),
+  `tests/test_calibration.py`.
+- **Build:** learn from the archive whether stated confidence matches realised
+  hit-rate (e.g. isotonic/Platt or a binned reliability map) and map raw → 
+  calibrated confidence per context (regime-aware). `reliability()` returns the
+  stated-vs-realised bins for the dashboard. Deterministic; identity calibrator
+  until enough history exists (cold start).
+- **Acceptance:** on a seeded archive where "90%" decisions won only ~60%, the
+  calibrator maps 0.90 → ≈0.60; with no history it is the identity map.
+
+### WP-7.7 — Experiment Registry  (module 19)
+- **Files:** `quantos/research/experiments.py` (`Experiment`,
+  `ExperimentRegistry`), `tests/test_experiments.py`.
+- **Build:** a scientific-lab ledger over the `Store`: `register(hypothesis,
+  setup) -> id`, `complete(id, result, conclusion)`, `query(**filters)`. Strategy
+  Lab runs (M5) and audit findings become registered experiments with a recorded
+  conclusion — reproducible via stored setup (I8).
+- **Acceptance:** an experiment round-trips (hypothesis → result → conclusion);
+  querying by status/tag works; a completed experiment is immutable.
+
 ---
 
 # Milestone 8 — Dashboard + Observability
@@ -478,6 +513,85 @@ each decision.
   lazy-imported.
 - **Acceptance:** logging helper writes to a local MLflow dir in a test; metrics
   module exposes counters without requiring a running Prometheus.
+
+---
+
+# Milestone 9 — Advanced Intelligence & Self-Improvement
+
+Goal: the slow, periodic loop of ARCHITECTURE §4.1 that keeps the system healthy
+and pushes it to learn. Design rule for the whole milestone: these modules
+**propose, they never auto-apply structural changes** — every proposal is a logged
+`Experiment` a human (or an explicit policy) approves; everything stays paper-only
+(I1); everything is reproducible (I8). Needs a mature system (M2 data, M5
+strategies, M7 archive) to reason over.
+
+### WP-9.1 — Knowledge Engine  (module 16)
+- **Files:** `quantos/knowledge/base.py` (`KnowledgeGraph`, `KnowledgeEngine`),
+  `quantos/knowledge/graph.py` (in-memory/`Store`-backed graph),
+  `tests/test_knowledge.py`.
+- **Build:** build a relationship graph from news/on-chain/macro
+  (entity→relation→entity with weight + provenance), e.g.
+  `ETF → BlackRock → positive_news → rally → bull_regime`. `infer(entity)` surfaces
+  implicit relations; `paths(src, dst)` explains a chain. Deterministic keyword/
+  co-occurrence baseline; optional LLM extraction behind `[llm]`. Feeds committee
+  context forward.
+- **Acceptance:** given seeded events, the engine builds the expected edges and
+  `paths("ETF","rally")` returns a non-empty explainable chain; deterministic.
+
+### WP-9.2 — Portfolio Intelligence  (module 22)
+- **Files:** `quantos/portfolio/base.py` (`PortfolioAnalyzer`),
+  `quantos/portfolio/analytics.py`, `tests/test_portfolio.py`.
+- **Build:** multi-asset correlations over a window (BTC/ETH/NASDAQ/gold/USD),
+  exposures (net/gross, cluster/factor), and concentration limits that feed the
+  Risk Manager. Point-in-time correct (I2).
+- **Acceptance:** on correlated fixtures the correlation matrix is recovered;
+  a concentrated book trips a concentration flag consumed by risk.
+
+### WP-9.3 — Meta-Risk  (module 23)
+- **Files:** `quantos/risk/meta.py` (`MetaRisk`, `MetaRiskReport`),
+  `tests/test_meta_risk.py`.
+- **Build:** audit the Risk Manager from history: veto rate vs outcomes (too
+  conservative? over-blocking profitable setups?), and whether limits are stale
+  relative to the current regime. Emits a report proposing limit adjustments — it
+  **does not** change limits itself.
+- **Acceptance:** on a seeded history where vetoes blocked mostly-winning setups,
+  Meta-Risk flags over-blocking and proposes a relaxation (as a proposal only).
+
+### WP-9.4 — Self-Evaluation  (module 20)
+- **Files:** `quantos/learning/self_eval.py` (`SelfEvaluator`, `SelfEvalReport`),
+  `tests/test_self_eval.py`.
+- **Build:** a periodic (e.g. weekly) review over archive + meta + health:
+  which modules/agents are degrading, which datasets no longer add signal, which
+  indicators lost predictive power, which agent is least useful. Structured,
+  ranked report.
+- **Acceptance:** on seeded data with a decaying analyst and a dead indicator,
+  the report ranks both as degrading; deterministic.
+
+### WP-9.5 — Hypothesis Generator  (module 23)
+- **Files:** `quantos/research/hypotheses.py` (`HypothesisGenerator`,
+  `Hypothesis`), `tests/test_hypotheses.py`.
+- **Build:** from archive + Knowledge Engine + Self-Evaluation, generate ranked
+  research questions ("which indicators lost power?", "which strategies are
+  dying?", "what new variables to investigate?") and emit them as `Experiment`s
+  into the Experiment Registry (WP-7.7) — closing the research cycle. Deterministic
+  rule baseline; optional LLM ideation behind `[llm]`.
+- **Acceptance:** given a seeded self-eval + knowledge state, it produces ranked
+  hypotheses and registers them as experiments queryable from the registry.
+
+### WP-9.6 — Market Simulator (real-time replay)  (module 21)
+- **Files:** `quantos/scenarios/simulator.py` (extend) or `quantos/sim/replay.py`
+  (`MarketSimulator`), `tests/test_market_sim.py`.
+- **Build:** replay a scenario (`COVID_CRASH`, `FTX`, `ETF_RALLY`, banking crisis,
+  flash crash) **bar-by-bar as if live**, driving the full pipeline
+  (regime → meta → committee → paper) so the system can be observed reacting in
+  real time. Reuses the M4 scenario library; adds a stepping/clock harness.
+- **Acceptance:** a replay steps deterministically through a scenario feeding the
+  paper engine; no look-ahead (I2); no real capital (I1).
+
+### M9 milestone gate
+Every M9 module only **proposes** (no auto-applied structural change); proposals
+land as reproducible `Experiment`s; the whole loop runs offline, paper-only, and
+deterministically.
 
 ---
 

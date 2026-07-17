@@ -78,10 +78,14 @@ tests and preserving every invariant in §0.
 │                    InvestmentCommittee  ·  StrategyLab  ·  Scheduler   │
 │                    (LangGraph optional for agent debate)              │
 ├──────────────────────────────────────────────────────────────────────┤
-│  INTELLIGENCE      Analysts (rule + LLM)  ·  Confidence  ·  Risk       │
+│  INTELLIGENCE      Analysts (rule + LLM)  ·  Confidence + Calibration  │
+│                    Risk + Meta-Risk  ·  AI Challenger                   │
 │                    Anomaly detector  ·  Market Regime Engine           │
 │                    Strategy generator + GA  ·  Meta-Learning Engine    │
-│                    Memory (RAG)  ·  Scenario simulator                 │
+│                    Knowledge Engine  ·  Portfolio Intelligence         │
+│                    Memory (RAG)  ·  Scenario/Market Simulator          │
+│  SELF-IMPROVEMENT  Experiment Registry · Self-Evaluation · Hypothesis  │
+│                    Generator  → feeds new experiments back in (§4.1)   │
 ├──────────────────────────────────────────────────────────────────────┤
 │  RESEARCH          Backtest · Walk-forward · Monte Carlo · Forward ·   │
 │                    Paper trading                                       │
@@ -115,6 +119,14 @@ tests and preserving every invariant in §0.
 | 13. Scenario simulator | `scenarios` | M4 | `Scenario` |
 | **14. Market Regime Engine** | `regime` | **M4** | `RegimeClassifier`, `RegimeState` |
 | **15. Meta-Learning Engine** | `meta` | **M7** | `MetaLearner`, `RegimePerformanceTable` |
+| **16. Knowledge Engine** | `knowledge` | **M9** | `KnowledgeGraph`, `KnowledgeEngine` |
+| **17. AI Challenger** | `committee.challenger` | **M6** | `Challenger` |
+| **18. Confidence Calibration** | `committee.calibration` | **M7** | `ConfidenceCalibrator` |
+| **19. Experiment Registry** | `research.experiments` | **M7** | `Experiment`, `ExperimentRegistry` |
+| **20. Self-Evaluation** | `learning.self_eval` | **M9** | `SelfEvaluator` |
+| **21. Market Simulator** (real-time replay) | `scenarios.simulator` (extend), `sim` | **M4 / M9** | `MarketSimulator` |
+| **22. Portfolio Intelligence** | `portfolio` | **M9** | `PortfolioAnalyzer` |
+| **23. Meta-Risk + Hypothesis Gen** | `risk.meta`, `research.hypotheses` | **M9** | `MetaRisk`, `HypothesisGenerator` |
 
 ### 2.3 Core contracts (the spine every module builds on)
 
@@ -194,6 +206,55 @@ class MetaLearner(Protocol):
 class MemoryStore(Protocol):
     def add(self, doc: dict) -> str: ...
     def query(self, text, k=5, filters=None) -> list[dict]: ...
+
+# committee/challenger.py (M6) — the official devil's advocate (module 17)
+class Challenger(Protocol):
+    def contest(self, decision: CommitteeDecision, snapshot) -> ChallengeResult: ...
+    # ChallengeResult: agrees | disputes + counter-evidence -> triggers a re-debate
+
+# committee/calibration.py (M7) — is the stated confidence honest? (module 18)
+class ConfidenceCalibrator(Protocol):
+    def fit(self, archive) -> "ConfidenceCalibrator": ...   # learn from outcomes
+    def calibrate(self, raw_confidence: float, context: dict) -> float: ...  # -> calibrated
+    def reliability(self) -> dict: ...                      # bins: stated vs realised
+
+# research/experiments.py (M7) — the scientific-lab ledger (module 19)
+@dataclass
+class Experiment: id; hypothesis; setup: dict; result: dict; conclusion: str; status
+class ExperimentRegistry(Protocol):
+    def register(self, hypothesis: str, setup: dict) -> str: ...
+    def complete(self, id: str, result: dict, conclusion: str) -> None: ...
+    def query(self, **filters) -> list[Experiment]: ...
+
+# knowledge/base.py (M9) — knowledge, not just data (module 16)
+class KnowledgeGraph(Protocol):
+    def upsert_relation(self, src, rel, dst, weight, provenance): ...
+    def neighbours(self, entity, rel=None) -> list: ...
+    def paths(self, src, dst, max_len=4) -> list: ...       # e.g. ETF→BlackRock→news→rally
+class KnowledgeEngine(Protocol):
+    def ingest(self, news, onchain, macro) -> None: ...     # build edges from the lake
+    def infer(self, entity) -> list["Relation"]: ...        # surface implicit relations
+
+# portfolio/base.py (M9) — reason about the whole book (module 22)
+class PortfolioAnalyzer(Protocol):
+    def correlations(self, symbols, window) -> "DataFrame": ...
+    def exposures(self, positions) -> dict: ...             # net/gross, factor, cluster
+    def concentration(self, positions) -> dict: ...         # limits feed the RiskManager
+
+# risk/meta.py (M9) — a Risk Manager for the Risk Manager (module 23)
+class MetaRisk(Protocol):
+    def review(self, archive, risk_history) -> MetaRiskReport: ...
+    # flags: too conservative? over-blocking? limits stale vs regime shift?
+
+# research/hypotheses.py (M9) — auto-generate the next questions (module 23)
+class HypothesisGenerator(Protocol):
+    def generate(self, archive, knowledge, self_eval) -> list["Hypothesis"]: ...
+    # e.g. "which indicators lost predictive power?" -> Experiments -> research cycle
+
+# learning/self_eval.py (M9) — periodic system health review (module 20)
+class SelfEvaluator(Protocol):
+    def evaluate(self, archive, meta, health) -> SelfEvalReport: ...
+    # which modules/datasets/indicators/agents are decaying?
 ```
 
 Everything is designed so an **LLM-backed analyst**, a **live broker**, a **new
@@ -218,7 +279,9 @@ orchestrator, not hard-wired to each other.
 | On-chain Analyst | `committee.analysts` | Exchange flows, whales, stablecoins, institutional wallets. | `AnalystOpinion` |
 | Statistical Analyst | `committee.analysts` | Regime-aware statistical edges; consumes selected strategies' signals. | `AnalystOpinion` |
 | **Risk Manager** | `committee.risk_manager` | Screens the trade; can **veto** (absolute, I5). | `RiskAssessment` |
+| **AI Challenger** (devil's advocate) | `committee.challenger` | Officially contests the Chair's provisional call with counter-evidence, forcing a second debate before it is final (M6, module 17). | `ChallengeResult` |
 | **Auditor** | `learning.audit` | Post-hoc: mines closed trades for what failed and why; proposes weight/strategy adjustments. | audit report |
+| **Meta-Risk** | `risk.meta` | Oversees the Risk Manager itself: too conservative? over-blocking? limits stale vs regime? (M9, module 23). | `MetaRiskReport` |
 | **Executor** | `execution` + `paper` | Routes an approved decision to the **paper** broker only (I1). | `TradeRecord` |
 
 ### Decision hierarchy (the Chair's rules, in order)
@@ -240,6 +303,14 @@ before the Chair decides. The debate must still produce the same
 `CommitteeDecision` type and honour the same hierarchy (regime gate, then veto,
 then threshold).
 
+**AI Challenger (M6, module 17).** Before a provisional decision is finalised, an
+official Challenger tries to break it — it argues the opposite side with
+counter-evidence drawn from the same snapshot/regime. If it raises a material
+objection, the Chair runs one more debate round incorporating it. This makes
+decisions more robust and, crucially, records *why* the objection was or wasn't
+decisive (I4). The Challenger never has a veto (that is the Risk Manager's alone,
+I5); it only forces reconsideration.
+
 ---
 
 ## 4. The regime-aware decision flow (target state)
@@ -258,12 +329,15 @@ DataLake.snapshot(symbol, tf, at)                 # M2: point-in-time multi-chan
    │        └─ selected strategies emit signals   # M5: feed the Statistical Analyst / spawn analysts
    │
    └─ InvestmentCommittee.deliberate(snapshot, ctx={regime, anomalies, signals})
-            │  analysts → ConfidenceModel → RiskManager
+            │  analysts → ConfidenceModel → ConfidenceCalibrator → RiskManager
+            │                                └─ M7: correct over/under-confidence from history
+            ├─ Challenger.contest(provisional)  # M6: devil's advocate ▶ maybe one more round
             └─ Chair.decide()   [regime gate ▶ risk veto ▶ threshold]
                      │
                      ├─ explain_decision()         # M1: narrative + reasons + risks
                      ├─ DecisionArchive.record()    # M7: dossier (regime, strategies, evidence)
-                     │        └─ later: outcome ▶ MetaLearner.update() + Auditor  # closes the loop
+                     │        └─ later: outcome ▶ MetaLearner.update() + Calibrator.fit()
+                     │                          + Auditor + Meta-Risk    # closes the loop
                      └─ PaperExecutionEngine.execute()   # paper only (I1)
 ```
 
@@ -271,6 +345,36 @@ The loop is closed: outcomes recorded in the archive feed the Meta-Learner (whic
 strategy families to trust per regime) and the Auditor (which components to fix).
 Every arrow's inputs and outputs are serialised into the decision's `run_manifest`
 so the whole path is reproducible (I8).
+
+### 4.1 The self-improvement loop (the scientific lab, M9)
+
+Above the per-decision loop runs a slower, periodic loop that keeps the whole
+system healthy and pushes it to learn — this is what turns quantos from a research
+platform into a research *lab*.
+
+```
+DecisionArchive + Experiment Registry (M7)        # every decision AND every experiment recorded
+        │
+        ├─ Confidence Calibration (M7)   ─ is stated confidence honest? recalibrate.
+        ├─ Knowledge Engine (M9)         ─ mine news/on-chain/macro into a relationship graph
+        │                                  (ETF → BlackRock → positive news → rally → bull regime)
+        ├─ Portfolio Intelligence (M9)   ─ cross-asset correlations/exposure (BTC/ETH/NASDAQ/gold/USD)
+        ├─ Meta-Risk (M9)                ─ audit the Risk Manager: too conservative? over-blocking?
+        │                                  limits stale vs the new regime?
+        └─ Self-Evaluation (M9, weekly)  ─ which modules/datasets/indicators/agents are decaying?
+                 │
+                 └─ Hypothesis Generator (M9)
+                        │   "which indicators lost predictive power?"
+                        │   "which strategies are dying?" "what new variables to investigate?"
+                        └─ new Experiments ▶ Experiment Registry ▶ Strategy Lab / research cycle
+```
+
+Design rules for this loop: it **proposes, never auto-executes structural
+changes** — a human (or an explicit, logged policy) approves weight/limit changes;
+every proposal is an `Experiment` with a hypothesis and a recorded conclusion
+(reproducible, I8); and it can only ever affect the **paper** system (I1). The
+Knowledge Engine and Portfolio Intelligence also feed *forward* into the
+per-decision loop (as committee context and risk limits), not just backward.
 
 ---
 
@@ -340,8 +444,13 @@ quant/
 │   ├── strategy/                  # base, generator, lab, evolution (M5)
 │   ├── meta/                      # MetaLearner + RegimePerformanceTable (M7)
 │   ├── memory/                    # archive, rag (M7)
-│   ├── learning/                  # audit / Auditor (M7)
-│   ├── scenarios/                 # library + simulator (M4)
+│   ├── learning/                  # audit / Auditor (M7), self_eval (M9)
+│   ├── scenarios/                 # library + simulator; real-time replay (M4/M9)
+│   ├── knowledge/                 # KnowledgeGraph + KnowledgeEngine (M9)
+│   ├── portfolio/                 # PortfolioAnalyzer, correlations (M9)
+│   ├── research/                  # experiments registry, hypotheses (M7/M9)
+│   ├── risk/                      # limits (M3), meta-risk (M9)
+│   ├── committee/                 # + challenger (M6), calibration (M7)
 │   ├── explain/  backtest/  paper/  execution/   # M1/M3
 │   └── dashboard/                 # Streamlit (M8)
 └── tests/                         # mirror every package, offline & deterministic
@@ -362,14 +471,20 @@ M4  Market State Intelligence: Anomaly detection + Market Regime Engine +
 M5  Strategy Lab: AI strategy generator + genetic evolution
 M6  LLM-backed analysts + LangGraph debate
 M7  Memory & Learning: Decision Archive + RAG memory + Continuous audit +
-    Meta-Learning Engine (regime × strategy-family selection)
+    Meta-Learning Engine (regime × strategy-family selection) +
+    Confidence Calibration + Experiment Registry
 M8  Dashboard + Observability (MLflow / Prometheus / Grafana)
+M9  Advanced Intelligence & Self-Improvement: Knowledge Engine + Portfolio
+    Intelligence + Meta-Risk + Self-Evaluation + Hypothesis Generator +
+    Market Simulator (real-time replay). Also M6: AI Challenger.
 ```
 
 Regime-aware strategy selection comes online when M4 (regimes) and M7 (meta) are
-both built; until then the committee runs regime-agnostic. Each milestone is a set
-of **work packages** in `BUILD_PLAN.md`, each sized to build+test in one pass and
-preserving every invariant in §0.
+both built; until then the committee runs regime-agnostic. The M9 self-improvement
+loop (§4.1) needs a mature system (M2 data, M5 strategies, M7 archive) before it
+has anything to reason over. Each milestone is a set of **work packages** in
+`BUILD_PLAN.md`, each sized to build+test in one pass and preserving every
+invariant in §0.
 
 ---
 
