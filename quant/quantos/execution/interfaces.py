@@ -15,11 +15,13 @@ definition (ARCHITECTURE §0).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, Protocol, runtime_checkable
 
 from quantos.committee.decision import CommitteeDecision
 from quantos.config import Settings
 from quantos.paper.broker import PaperBroker, TradeRecord
+from quantos.sizing.base import PositionSizer
 
 __all__ = [
     "Broker",
@@ -97,9 +99,11 @@ class DefaultRiskGate:
 class PaperExecutionEngine:
     """Executes committee decisions against a paper broker — and only paper.
 
-    Position sizing in M1 is simple and bounded: the order notional is
-    ``equity * max_position_fraction * confidence``. Real sizing arrives in M3
-    (``sizing``, module 26) behind the same interface.
+    Sizing: with a :class:`~quantos.sizing.base.PositionSizer` (module 26,
+    M3) the engine consults it for the position fraction; without one it uses
+    the simple M1 rule ``max_position_fraction * confidence``. Either way the
+    fraction is **clamped to ``settings.max_position_fraction``** — the Risk
+    Manager's limit is absolute and a sizer can never breach it (I5).
     """
 
     def __init__(
@@ -107,10 +111,14 @@ class PaperExecutionEngine:
         broker: Broker | None = None,
         risk_gate: RiskGate | None = None,
         settings: Settings | None = None,
+        sizer: PositionSizer | None = None,
     ) -> None:
         """
         Args:
             broker: destination broker; a fresh :class:`PaperBroker` by default.
+            risk_gate: optional gate; :class:`DefaultRiskGate` by default.
+            settings: platform settings (cash, fees, max position fraction).
+            sizer: optional position sizer the engine consults (module 26).
 
         Raises:
             LiveExecutionDisabled: if ``broker`` is not a paper broker (I1).
@@ -128,15 +136,22 @@ class PaperExecutionEngine:
             )
         self.broker = broker
         self.risk_gate = risk_gate or DefaultRiskGate()
+        self.sizer = sizer
 
     def execute(
-        self, decision: CommitteeDecision, price: float | None = None
+        self,
+        decision: CommitteeDecision,
+        price: float | None = None,
+        vol: float | None = None,
+        corr: Mapping[str, float] | float | None = None,
     ) -> TradeRecord | None:
         """Route a decision through the risk gate to the paper broker.
 
         Args:
             decision: the committee's call.
             price: execution reference price; the decision's price by default.
+            vol: annualised asset volatility forwarded to the sizer.
+            corr: correlation(s) with the book forwarded to the sizer.
 
         Returns:
             The fill's :class:`TradeRecord`, or None when the gate held it back.
@@ -145,7 +160,15 @@ class PaperExecutionEngine:
             return None
         fill_price = decision.price if price is None else price
         equity = self.broker.equity({decision.symbol: fill_price})
-        notional = equity * self.settings.max_position_fraction * decision.confidence
+        if self.sizer is not None:
+            fraction = abs(
+                self.sizer.size(decision, portfolio={"equity": equity}, vol=vol, corr=corr)
+            )
+        else:
+            fraction = self.settings.max_position_fraction * decision.confidence
+        # Defence in depth: whatever the sizer says, the risk limit wins (I5).
+        fraction = min(fraction, self.settings.max_position_fraction)
+        notional = equity * fraction
         qty = notional / fill_price
         if qty <= 0:
             return None
@@ -165,6 +188,7 @@ def build_execution_engine(
     broker: Broker | None = None,
     risk_gate: RiskGate | None = None,
     settings: Settings | None = None,
+    sizer: PositionSizer | None = None,
 ) -> ExecutionEngine:
     """The only factory for execution engines — and it refuses live (I1).
 
@@ -173,6 +197,7 @@ def build_execution_engine(
         broker: optional broker (must be paper).
         risk_gate: optional gate; :class:`DefaultRiskGate` by default.
         settings: platform settings.
+        sizer: optional position sizer the engine consults (module 26).
 
     Returns:
         A :class:`PaperExecutionEngine`.
@@ -182,4 +207,4 @@ def build_execution_engine(
     """
     if live:
         raise LiveExecutionDisabled()
-    return PaperExecutionEngine(broker=broker, risk_gate=risk_gate, settings=settings)
+    return PaperExecutionEngine(broker=broker, risk_gate=risk_gate, settings=settings, sizer=sizer)
