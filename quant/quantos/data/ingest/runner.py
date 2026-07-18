@@ -113,8 +113,17 @@ class IngestionRunner:
             self.monitor.record_failure(connector, error=message)
         return ValidationReport(ok=False, errors=[message])
 
-    def run(self, connector: Connector, req: FetchRequest) -> ValidationReport:
+    def run(
+        self, connector: Connector, req: FetchRequest, *, use_watermark: bool = True
+    ) -> ValidationReport:
         """Ingest one connector for one request. Idempotent.
+
+        Args:
+            connector: the plug-in to ingest.
+            req: what to fetch.
+            use_watermark: when False the request window is fetched as given —
+                the backfill path for gap repair, whose windows lie *behind*
+                the watermark. The watermark itself never regresses.
 
         Returns:
             The validation report for the fetched frame; ``ok=False`` reports
@@ -129,7 +138,11 @@ class IngestionRunner:
         # Resume from the watermark: never re-fetch what is already curated.
         watermark = self.watermarks.get(name, req.symbol)
         effective = req
-        if watermark is not None and (req.start is None or pd.Timestamp(req.start) <= watermark):
+        if (
+            use_watermark
+            and watermark is not None
+            and (req.start is None or pd.Timestamp(req.start) <= watermark)
+        ):
             effective = dataclasses.replace(req, start=watermark)
 
         try:
@@ -151,13 +164,22 @@ class IngestionRunner:
             return report
 
         time_col = schema.time_column
-        new_rows = cleaned if watermark is None else cleaned[cleaned[time_col] > watermark]
-        if not new_rows.empty:
-            self.store.write("raw", name, new_rows, schema)
-        self.store.upsert("curated", name, cleaned, keys=list(schema.primary_key))
+        keys = list(schema.primary_key)
+        if use_watermark:
+            new_rows = cleaned if watermark is None else cleaned[cleaned[time_col] > watermark]
+            if not new_rows.empty:
+                self.store.write("raw", name, new_rows, schema)
+        else:
+            # Backfill: the window lies behind the watermark; upsert keeps the
+            # raw tier duplicate-free if the same gap is repaired twice.
+            self.store.upsert("raw", name, cleaned, keys)
+        self.store.upsert("curated", name, cleaned, keys)
 
         if not cleaned.empty:
-            self.watermarks.set(name, req.symbol, pd.Timestamp(cleaned[time_col].max()))
+            new_mark = pd.Timestamp(cleaned[time_col].max())
+            if watermark is not None and watermark > new_mark:
+                new_mark = watermark  # a backfill never regresses the watermark
+            self.watermarks.set(name, req.symbol, new_mark)
         if self.monitor is not None:
             last_event = pd.Timestamp(cleaned[time_col].max()) if not cleaned.empty else None
             self.monitor.record_success(
