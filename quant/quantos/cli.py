@@ -1,15 +1,20 @@
 """quantos command-line interface.
 
-Five research commands, all offline-capable and reproducible for a fixed seed::
+Research commands (M1) plus Data Lake commands (M2), all offline-capable and
+reproducible for a fixed seed::
 
     python -m quantos.cli decide      --symbol BTC/USDT --bars 400
+    python -m quantos.cli decide      --symbol BTC/USDT --from-lake
     python -m quantos.cli backtest    --symbol BTC/USDT --bars 400
     python -m quantos.cli walkforward --symbol BTC/USDT --bars 600
     python -m quantos.cli montecarlo  --symbol BTC/USDT --bars 400
     python -m quantos.cli paper       --symbol BTC/USDT --bars 400
+    python -m quantos.cli ingest      --symbol BTC/USDT
+    python -m quantos.cli catalog
+    python -m quantos.cli health
 
-Without ccxt/network the collector transparently uses the deterministic
-synthetic generator (I6); nothing here can ever place a live order (I1).
+Without ccxt/network every connector transparently uses its deterministic
+synthetic mode (I6); nothing here can ever place a live order (I1).
 """
 
 from __future__ import annotations
@@ -26,6 +31,8 @@ from quantos.backtest.walk_forward import walk_forward
 from quantos.committee.committee import default_committee
 from quantos.config import Settings
 from quantos.data.collector import DataCollector
+from quantos.data.lake import DataLake
+from quantos.data.store.duckdb_store import DuckDBStore
 from quantos.execution.interfaces import build_execution_engine
 from quantos.explain.explainer import explain_decision
 
@@ -56,8 +63,21 @@ def _build_parser() -> argparse.ArgumentParser:
             help="attach deterministic synthetic macro/sentiment/on-chain channels",
         )
 
+    def lake_opts(p: argparse.ArgumentParser) -> None:
+        p.add_argument(
+            "--lake-root",
+            default=None,
+            help="Data Lake directory (default: QUANTOS_LAKE_ROOT or ./.quantos-lake)",
+        )
+
     p_decide = sub.add_parser("decide", help="run the committee once, print the full explanation")
     common(p_decide)
+    lake_opts(p_decide)
+    p_decide.add_argument(
+        "--from-lake",
+        action="store_true",
+        help="build the snapshot from the curated Data Lake (all channels, 0 abstentions)",
+    )
 
     p_bt = sub.add_parser("backtest", help="committee-driven backtest with baselines")
     common(p_bt)
@@ -81,6 +101,27 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_paper = sub.add_parser("paper", help="decide, then execute on the paper broker")
     common(p_paper)
+
+    p_ingest = sub.add_parser("ingest", help="ingest every registered connector into the lake")
+    common(p_ingest)
+    lake_opts(p_ingest)
+    p_ingest.add_argument(
+        "--categories",
+        nargs="*",
+        default=None,
+        help="restrict to these connector categories (default: all)",
+    )
+    p_ingest.add_argument(
+        "--repair-gaps",
+        action="store_true",
+        help="also detect and backfill cadence gaps after ingesting",
+    )
+
+    p_catalog = sub.add_parser("catalog", help="list the lake's datasets, schemas and coverage")
+    lake_opts(p_catalog)
+
+    p_health = sub.add_parser("health", help="per-connector freshness, success rate and circuits")
+    lake_opts(p_health)
     return parser
 
 
@@ -114,13 +155,69 @@ def _print_json(title: str, payload: object) -> None:
     print(json.dumps(payload, indent=2, default=str))
 
 
+def _build_lake(args: argparse.Namespace, settings: Settings | None = None) -> DataLake:
+    """A DataLake persisted under ``--lake-root`` (env/default otherwise)."""
+    settings = settings or Settings.from_env()
+    root = getattr(args, "lake_root", None) or settings.lake_root
+    return DataLake(store=DuckDBStore(root=root), settings=settings)
+
+
 def _cmd_decide(args: argparse.Namespace) -> int:
     settings = _settings(args)
-    collector = DataCollector(settings=settings, force_synthetic=args.synthetic)
-    snapshot = collector.snapshot(include_channels=args.channels)
-    print(f"data source: {collector.last_source}")
+    if args.from_lake:
+        lake = _build_lake(args, settings)
+        mode = "synthetic" if args.synthetic else "auto"
+        try:
+            snapshot = lake.snapshot(settings.symbol, settings.timeframe)
+        except ValueError:
+            print("lake holds no curated data yet — ingesting first")
+            lake.ingest(settings.symbol, settings.timeframe, mode=mode)
+            snapshot = lake.snapshot(settings.symbol, settings.timeframe)
+        print(
+            f"data source: lake ({snapshot.bars} curated bars, "
+            f"all channels as-of {snapshot.as_of})"
+        )
+    else:
+        collector = DataCollector(settings=settings, force_synthetic=args.synthetic)
+        snapshot = collector.snapshot(include_channels=args.channels)
+        print(f"data source: {collector.last_source}")
     decision = default_committee(settings).deliberate(snapshot)
     print(explain_decision(decision))
+    return 0
+
+
+def _cmd_ingest(args: argparse.Namespace) -> int:
+    settings = _settings(args)
+    lake = _build_lake(args, settings)
+    mode = "synthetic" if args.synthetic else "auto"
+    reports = lake.ingest(
+        settings.symbol, settings.timeframe, categories=args.categories, mode=mode
+    )
+    print(f"lake root: {getattr(args, 'lake_root', None) or settings.lake_root}")
+    for name, report in reports.items():
+        status = "ok" if report.ok else "FAILED"
+        detail = f"{report.rows} rows"
+        if report.errors:
+            detail = "; ".join(report.errors)
+        print(f"  {name:<12} {status:>6}  {detail}")
+    if args.repair_gaps:
+        summaries = lake.repair_gaps(settings.symbol, settings.timeframe, mode=mode)
+        repaired = {n: s for n, s in summaries.items() if s["gaps_found"]}
+        print(f"gap repair: {len(repaired)} connector(s) had gaps" if repaired else "no gaps")
+    failed = [n for n, r in reports.items() if not r.ok]
+    print(f"ingested {len(reports) - len(failed)}/{len(reports)} connectors for {settings.symbol}")
+    return 1 if failed else 0
+
+
+def _cmd_catalog(args: argparse.Namespace) -> int:
+    lake = _build_lake(args)
+    _print_json("data catalog", lake.catalog().datasets())
+    return 0
+
+
+def _cmd_health(args: argparse.Namespace) -> int:
+    lake = _build_lake(args)
+    _print_json("lake health", lake.health())
     return 0
 
 
@@ -228,6 +325,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "walkforward": _cmd_walkforward,
         "montecarlo": _cmd_montecarlo,
         "paper": _cmd_paper,
+        "ingest": _cmd_ingest,
+        "catalog": _cmd_catalog,
+        "health": _cmd_health,
     }
     return handlers[args.command](args)
 

@@ -32,6 +32,9 @@ class Settings:
         confidence_threshold: minimum composite confidence to trade.
         min_agreement: minimum weighted analyst agreement to trade.
         max_position_fraction: max fraction of equity a paper order may use.
+        lake_root: directory the Data Lake persists under (M2); relative to
+            the working directory by default, overridable via
+            ``QUANTOS_LAKE_ROOT``.
     """
 
     exchange_id: str = "binance"
@@ -45,6 +48,7 @@ class Settings:
     confidence_threshold: float = 0.35
     min_agreement: float = 0.5
     max_position_fraction: float = 0.25
+    lake_root: str = ".quantos-lake"
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:

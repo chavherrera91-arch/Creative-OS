@@ -24,3 +24,6 @@ htmlcov/
 *.parquet
 data_lake/
 mlruns/
+
+# Data Lake (M2)
+.quantos-lake/

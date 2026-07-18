@@ -1,0 +1,56 @@
+# quantos optional infrastructure (ARCHITECTURE §5, extra [infra]).
+#
+# NONE of this is required: the whole platform runs offline against
+# DuckDB/Parquet with zero services (invariant I6). Spin this up only for the
+# production-style hot tier (TimescaleDB), cache/bus (Redis) and — from M8 —
+# the dashboard.
+#
+# NO SECRETS COMMITTED: values below are local-development defaults only;
+# override them via your local .env (git-ignored). The application reads its
+# DSN exclusively from QUANTOS_TIMESCALE_DSN.
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: ${QUANTOS_DB_USER:-quantos}
+      POSTGRES_PASSWORD: ${QUANTOS_DB_PASSWORD:-quantos-local-dev}
+      POSTGRES_DB: ${QUANTOS_DB_NAME:-quantos}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - timescale-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${QUANTOS_DB_USER:-quantos}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dashboard:
+    # Placeholder — the Streamlit dashboard ships in M8 (WP-8.1) and will
+    # replace this command with its real entry point.
+    image: python:3.12-slim
+    command:
+      [
+        "python",
+        "-c",
+        "print('quantos dashboard placeholder - arrives with M8 (WP-8.1)')",
+      ]
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  timescale-data:
