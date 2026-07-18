@@ -19,8 +19,10 @@ from quantos.data.connectors.base import FetchRequest
 
 __all__ = [
     "CANONICAL_PERIODS",
+    "CANONICAL_SPAN_SECONDS",
     "SYNTHETIC_EPOCH",
     "cadence_index",
+    "canonical_periods",
     "derive_seed",
     "rng_for",
     "slice_window",
@@ -29,8 +31,17 @@ __all__ = [
 #: Fixed anchor for all synthetic series — no wall clock in research paths (I8).
 SYNTHETIC_EPOCH = "2024-01-01"
 
-#: Length of every canonical synthetic series.
+#: Length of the canonical hourly series.
 CANONICAL_PERIODS = 1440
+
+#: Time span every canonical series covers (60 days at hourly cadence), so
+#: all channels overlap the same window and as-of joins always find rows.
+CANONICAL_SPAN_SECONDS = CANONICAL_PERIODS * 3600
+
+
+def canonical_periods(cadence_seconds: int) -> int:
+    """Number of periods a cadence needs to span the canonical window."""
+    return max(2, CANONICAL_SPAN_SECONDS // cadence_seconds)
 
 
 def derive_seed(name: str, symbol: str, seed: int) -> int:
