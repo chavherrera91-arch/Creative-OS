@@ -1,45 +1,28 @@
-"""The Risk Manager (module 8, M1 scope).
+"""The Risk Manager (module 8).
 
-Screens every prospective trade with deterministic rules. Each rule returns a
-:class:`RiskCheck` at level ``ok``, ``warning`` or ``veto``. **A single veto is
-absolute**: the Chair must stand the committee down regardless of confidence
-(invariant I5). The composable rule library arrives in M3 (``risk.limits``);
-the constructor/behaviour here stays back-compatible with it.
+Screens every prospective trade by running a configurable list of composable
+:class:`~quantos.risk.limits.RiskRule` objects (M3, ``quantos.risk.limits``).
+Each rule returns a :class:`RiskCheck` at level ``ok``, ``warning`` or
+``veto``. **A single veto is absolute**: the Chair must stand the committee
+down regardless of confidence (invariant I5).
+
+The constructor keeps its M1 signature and default behaviour: with no explicit
+``rules``, :func:`~quantos.risk.limits.default_rules` builds the original four
+rules (volatility spike, macro event, daily drawdown, low liquidity) from the
+same parameters — back-compatible by construction.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 from quantos.committee.confidence import ConfidenceReport
 from quantos.data.models import MarketSnapshot
-from quantos.features import indicators as ind
+from quantos.risk.limits import OK, VETO, WARNING, RiskCheck, RiskRule, default_rules
 
-__all__ = ["RiskAssessment", "RiskCheck", "RiskManager"]
-
-OK = "ok"
-WARNING = "warning"
-VETO = "veto"
-
-
-@dataclass(frozen=True)
-class RiskCheck:
-    """Outcome of one risk rule."""
-
-    name: str
-    level: str  # ok | warning | veto
-    message: str
-    value: float | None = None
-
-    def as_dict(self) -> dict[str, Any]:
-        """JSON-serialisable representation (I4)."""
-        return {
-            "name": self.name,
-            "level": self.level,
-            "message": self.message,
-            "value": self.value,
-        }
+__all__ = ["OK", "VETO", "WARNING", "RiskAssessment", "RiskCheck", "RiskManager"]
 
 
 @dataclass
@@ -74,7 +57,7 @@ class RiskAssessment:
 
 
 class RiskManager:
-    """Deterministic rule screen: volatility, macro events, drawdown, liquidity."""
+    """Deterministic rule screen over a configurable, composable rule list."""
 
     def __init__(
         self,
@@ -84,6 +67,7 @@ class RiskManager:
         min_volume_ratio: float = 0.3,
         warn_volume_ratio: float = 0.6,
         vol_window: int = 20,
+        rules: Sequence[RiskRule] | None = None,
     ) -> None:
         """
         Args:
@@ -96,6 +80,8 @@ class RiskManager:
                 fraction of its sample median (low liquidity).
             warn_volume_ratio: warning level for the same ratio.
             vol_window: rolling window for realised volatility and volume.
+            rules: explicit rule list; when omitted, the M1-equivalent default
+                set is built from the parameters above (back-compatible).
         """
         self.max_vol_ratio = max_vol_ratio
         self.warn_vol_ratio = warn_vol_ratio
@@ -103,72 +89,18 @@ class RiskManager:
         self.min_volume_ratio = min_volume_ratio
         self.warn_volume_ratio = warn_volume_ratio
         self.vol_window = vol_window
-
-    # -- individual rules ---------------------------------------------------
-
-    def _check_volatility(self, snapshot: MarketSnapshot) -> RiskCheck:
-        close = snapshot.ohlcv["close"]
-        vol = ind.rolling_volatility(close, self.vol_window)
-        vol_now, vol_med = float(vol.iloc[-1]), float(vol.median())
-        if vol_med <= 0 or vol.isna().all():
-            return RiskCheck("volatility_spike", OK, "not enough history to judge volatility")
-        ratio = vol_now / vol_med
-        message = f"realised vol is {ratio:.2f}x its median"
-        if ratio >= self.max_vol_ratio:
-            return RiskCheck("volatility_spike", VETO, f"volatility spike: {message}", ratio)
-        if ratio >= self.warn_vol_ratio:
-            return RiskCheck("volatility_spike", WARNING, f"elevated volatility: {message}", ratio)
-        return RiskCheck("volatility_spike", OK, message, ratio)
-
-    def _check_macro_event(
-        self, snapshot: MarketSnapshot, context: dict[str, Any] | None
-    ) -> RiskCheck:
-        events = list(snapshot.events or [])
-        if context and context.get("macro_event"):
-            events.append({"name": str(context["macro_event"]), "impact": "high"})
-        high = [e for e in events if str(e.get("impact", "")).lower() == "high"]
-        medium = [e for e in events if str(e.get("impact", "")).lower() == "medium"]
-        if high:
-            names = ", ".join(str(e.get("name", "?")) for e in high)
-            return RiskCheck(
-                "macro_event", VETO, f"high-impact macro event imminent: {names}", float(len(high))
+        self.rules: list[RiskRule] = (
+            list(rules)
+            if rules is not None
+            else default_rules(
+                max_vol_ratio=max_vol_ratio,
+                warn_vol_ratio=warn_vol_ratio,
+                max_daily_drawdown=max_daily_drawdown,
+                min_volume_ratio=min_volume_ratio,
+                warn_volume_ratio=warn_volume_ratio,
+                vol_window=vol_window,
             )
-        if medium:
-            names = ", ".join(str(e.get("name", "?")) for e in medium)
-            return RiskCheck(
-                "macro_event",
-                WARNING,
-                f"medium-impact event on calendar: {names}",
-                float(len(medium)),
-            )
-        return RiskCheck("macro_event", OK, "no high-impact events on the calendar", 0.0)
-
-    def _check_daily_drawdown(self, context: dict[str, Any] | None) -> RiskCheck:
-        pnl = float((context or {}).get("daily_pnl_pct", 0.0))
-        if pnl <= -self.max_daily_drawdown:
-            return RiskCheck(
-                "daily_drawdown",
-                VETO,
-                f"daily loss {pnl:.1%} breaches the {self.max_daily_drawdown:.0%} limit",
-                pnl,
-            )
-        return RiskCheck("daily_drawdown", OK, f"daily P&L {pnl:+.1%} within limits", pnl)
-
-    def _check_liquidity(self, snapshot: MarketSnapshot) -> RiskCheck:
-        volume = snapshot.ohlcv["volume"]
-        recent = float(volume.tail(self.vol_window).mean())
-        median = float(volume.median())
-        if median <= 0:
-            return RiskCheck("low_liquidity", VETO, "no measurable volume", 0.0)
-        ratio = recent / median
-        message = f"recent volume is {ratio:.2f}x its median"
-        if ratio <= self.min_volume_ratio:
-            return RiskCheck("low_liquidity", VETO, f"liquidity collapse: {message}", ratio)
-        if ratio <= self.warn_volume_ratio:
-            return RiskCheck("low_liquidity", WARNING, f"thin liquidity: {message}", ratio)
-        return RiskCheck("low_liquidity", OK, message, ratio)
-
-    # -- assessment ---------------------------------------------------------
+        )
 
     def assess(
         self,
@@ -176,17 +108,20 @@ class RiskManager:
         report: ConfidenceReport | None = None,
         context: dict[str, Any] | None = None,
     ) -> RiskAssessment:
-        """Run every rule and consolidate into a :class:`RiskAssessment`.
+        """Run every configured rule and consolidate into a :class:`RiskAssessment`.
 
-        The ``report`` parameter is accepted for signature stability (rules that
-        depend on the committee's conviction arrive with M3).
+        Args:
+            snapshot: the market view under assessment.
+            report: the committee's aggregated conviction (available to rules
+                that condition on it).
+            context: deliberation context (``daily_pnl_pct``, ``macro_event``,
+                ``benchmark_close``, ``proposed_position_fraction``, ...).
+
+        Returns:
+            The consolidated assessment; ``vetoed`` is True on any single
+            veto (I5).
         """
-        checks = [
-            self._check_volatility(snapshot),
-            self._check_macro_event(snapshot, context),
-            self._check_daily_drawdown(context),
-            self._check_liquidity(snapshot),
-        ]
+        checks = [rule.check(snapshot, report, context) for rule in self.rules]
         vetoes = [c.message for c in checks if c.level == VETO]
         warnings = [c.message for c in checks if c.level == WARNING]
         return RiskAssessment(vetoed=bool(vetoes), vetoes=vetoes, warnings=warnings, checks=checks)
