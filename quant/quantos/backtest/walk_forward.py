@@ -18,6 +18,7 @@ import pandas as pd
 from quantos.backtest.baselines import vs_baselines
 from quantos.backtest.engine import backtest
 from quantos.backtest.metrics import HOURS_PER_YEAR, summarize
+from quantos.backtest.validation import deflated_sharpe_from_returns
 
 __all__ = ["WalkForwardFold", "WalkForwardResult", "walk_forward"]
 
@@ -51,12 +52,19 @@ class WalkForwardFold:
 
 @dataclass
 class WalkForwardResult:
-    """All folds plus the aggregate out-of-sample view."""
+    """All folds plus the aggregate out-of-sample view.
+
+    ``validation`` carries the anti-overfitting report (per-period Sharpe,
+    skew, kurtosis and the Deflated Sharpe Ratio for the stated number of
+    trials) over the concatenated OOS returns — no walk-forward edge is ever
+    reported without it (invariant I9).
+    """
 
     folds: list[WalkForwardFold] = field(default_factory=list)
     oos_returns: pd.Series = field(default_factory=lambda: pd.Series(dtype=float))
     oos_metrics: dict[str, float] = field(default_factory=dict)
     baselines: dict[str, Any] = field(default_factory=dict)
+    validation: dict[str, float] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         """JSON-serialisable representation."""
@@ -64,6 +72,7 @@ class WalkForwardResult:
             "folds": [f.as_dict() for f in self.folds],
             "oos_metrics": dict(self.oos_metrics),
             "baselines": dict(self.baselines),
+            "validation": dict(self.validation),
         }
 
 
@@ -76,6 +85,7 @@ def walk_forward(
     slippage_bps: float = 5.0,
     periods_per_year: float = HOURS_PER_YEAR,
     baseline_seed: int = 7,
+    n_trials: int = 1,
 ) -> WalkForwardResult:
     """Run walk-forward out-of-sample evaluation.
 
@@ -89,10 +99,14 @@ def walk_forward(
         slippage_bps: slippage assumption.
         periods_per_year: annualisation factor.
         baseline_seed: seed for the aggregate random baseline.
+        n_trials: how many strategy variants were tried before this one was
+            selected — deflates the reported Sharpe accordingly (I9). Be
+            honest here: understating it overstates the edge.
 
     Returns:
         A :class:`WalkForwardResult`; ``oos_metrics`` covers the concatenated
-        out-of-sample returns only.
+        out-of-sample returns only and ``validation`` carries its Deflated
+        Sharpe report (I9).
     """
     n = len(ohlcv)
     if n <= min_train + n_folds:
@@ -137,4 +151,5 @@ def walk_forward(
         baselines=vs_baselines(
             oos_returns, close, seed=baseline_seed, periods_per_year=periods_per_year
         ),
+        validation=deflated_sharpe_from_returns(oos_returns, n_trials=n_trials),
     )
