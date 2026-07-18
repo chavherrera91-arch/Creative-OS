@@ -61,7 +61,20 @@ the backtest→walk-forward→Monte Carlo funnel with mandatory baselines, paper
 trading, hard-disabled live execution, and the CLI
 (`python -m quantos.cli decide|backtest|walkforward|montecarlo|paper`).
 
-Fable 5 continues milestone by milestone from **M2 — Data Infrastructure**,
+**Milestone 2 (Data Infrastructure) is shipped** — WP-2.1→2.9 per
+[`docs/DATA_INFRASTRUCTURE.md`](./docs/DATA_INFRASTRUCTURE.md): versioned
+schemas + migrations + validation, the tiered `Store` (DuckDB/Parquet default,
+lazy Timescale), the self-registering `Connector` framework (zero core edits
+per source, I7), six connectors (market, derivatives, on-chain, macro,
+sentiment, news — all with deterministic synthetic modes), resilient
+idempotent ingestion (retry, circuit breaker, watermarks), gap repair, the
+offline-testable scheduler, the health monitor, the catalog, the
+point-in-time `FeatureStore` (I2), the `DataLake` facade whose snapshots let
+the committee deliberate with **0 abstentions**, the lake CLI
+(`ingest|catalog|health|decide --from-lake`) and the optional
+`docker-compose.yml` infra (no secrets).
+
+Fable 5 continues milestone by milestone from **M3 — Validation rigor**,
 each work package shipping with tests and preserving every invariant in §0.
 
 ---
@@ -105,7 +118,7 @@ each work package shipping with tests and preserving every invariant in §0.
 
 | Vision module | Package(s) | Milestone | Key contract |
 | ------------- | ---------- | --------- | ------------ |
-| 1. Data Lake | `data.schema`, `data.store`, `data.connectors`, `data.ingest`, `data.lake`, `data.featurestore` | M2 | `Connector`, `Store`, `Schema` |
+| 1. Data Lake | `data.schema`, `data.store`, `data.connectors`, `data.ingest`, `data.quality`, `data.catalog`, `data.lake`, `data.featurestore` | **M2 ✅ shipped** | `Connector`, `Store`, `Schema` |
 | 2. Multi-agent engine | `committee/*`, `committee.llm`, `committee.debate` | **M1 ✅ shipped** / M6 | `Analyst`, `Chair` |
 | 3. Confidence system | `committee.confidence` | **M1 ✅ shipped** | `ConfidenceModel` |
 | 4. Anomaly detector | `anomaly` | M4 | `AnomalyDetector` |

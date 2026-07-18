@@ -39,20 +39,58 @@ generator provides deterministic market data.
 
 ```bash
 python -m quantos.cli decide     --symbol BTC/USDT --bars 400   # full explainable decision
+python -m quantos.cli decide     --symbol BTC/USDT --from-lake  # snapshot from the Data Lake
 python -m quantos.cli backtest   --symbol BTC/USDT --bars 400   # committee backtest + baselines
 python -m quantos.cli walkforward --symbol BTC/USDT --bars 600  # out-of-sample folds
 python -m quantos.cli montecarlo --symbol BTC/USDT --bars 400   # resampled risk profile
 python -m quantos.cli paper      --symbol BTC/USDT --bars 400   # decide + paper execution
+python -m quantos.cli ingest     --symbol BTC/USDT              # run all connectors into the lake
+python -m quantos.cli catalog                                   # datasets, schemas, coverage
+python -m quantos.cli health                                    # freshness / success / circuits
 ```
 
 Every command runs offline and is reproducible for a fixed `--seed`.
 
-## Layout (Milestone 1 — shipped)
+## The Data Lake (Milestone 2 — shipped)
+
+Every data source is a **plug-in connector** (`@register`ed, self-discovered):
+market OHLCV, derivatives, on-chain, macro, sentiment and AI-tagged news. Each
+has a versioned **schema** validated on write, a deterministic **synthetic**
+offline mode, and an optional lazy live backend (keys via env only). Ingestion
+is resilient (retry + circuit breaker), **idempotent** (primary-key upsert +
+per-connector watermarks) and observable (freshness/lag/success per
+connector). Storage is tiered — `raw` → `curated` → `features` — on
+DuckDB/Parquet by default with optional TimescaleDB. `FeatureStore.as_of`
+guarantees point-in-time reads (never a value with `event_time > at`, I2), and
+`DataLake.snapshot(...)` assembles a full multi-channel `MarketSnapshot` on
+which the committee deliberates with **zero abstentions**. Adding a new source
+requires **zero core edits** — one new module, nothing else.
+
+```bash
+python -m quantos.cli ingest --symbol BTC/USDT      # offline: 6/6 connectors, synthetic
+python -m quantos.cli decide --symbol BTC/USDT --from-lake   # 5 active / 0 abstained
+```
+
+Optional infra (never required): `docker-compose.yml` spins up TimescaleDB +
+Redis + a dashboard placeholder. No secrets are committed; DSNs come from env.
+
+## Layout
 
 ```
 quantos/
 ├── config.py                Settings (env-driven, offline defaults)
-├── data/                    MarketSnapshot + read-only collector (synthetic fallback)
+├── data/                    M2 Data Lake
+│   ├── models.py collector.py   MarketSnapshot + read-only collector
+│   ├── schema/              FieldSpec/Schema, registry + migrations, validator
+│   ├── store/               Store port; DuckDBStore (Parquet) · TimescaleStore (lazy)
+│   ├── connectors/          plug-in sources: market, derivatives, onchain,
+│   │                        macro, sentiment, news (+ @register registry)
+│   ├── ingest/              RetryPolicy, CircuitBreaker, watermarks, runner,
+│   │                        gap repair, 24/7 scheduler (offline run_due)
+│   ├── quality/             HealthMonitor (freshness, lag, success rate)
+│   ├── catalog.py           dataset inventory + lineage
+│   ├── featurestore.py      point-in-time as_of reads (I2)
+│   └── lake.py              DataLake facade: ingest/snapshot/catalog/health
 ├── features/                causal technical indicators (no look-ahead)
 ├── committee/               analysts, confidence model, risk veto, chair, decision
 ├── explain/                 explain_decision / decision_report
@@ -60,7 +98,8 @@ quantos/
 │                            metrics, buy-and-hold + random baselines
 ├── paper/                   PaperBroker + per-trade dossier (TradeRecord)
 ├── execution/               Broker/RiskGate/ExecutionEngine ports; live HARD-DISABLED
-└── cli.py                   decide | backtest | walkforward | montecarlo | paper
+└── cli.py                   decide | backtest | walkforward | montecarlo | paper |
+                             ingest | catalog | health
 ```
 
 ## Tests
@@ -71,5 +110,6 @@ cd quant && python -m pytest        # offline, deterministic, fast
 
 ## Status
 
-Milestone 1 (Investment Committee) is complete. Next: M2 — Data Infrastructure
-(connectors, schema registry, tiered store, feature store, DataLake facade).
+Milestones 1 (Investment Committee) and 2 (Data Infrastructure) are complete.
+Next: M3 — validation rigor (risk limits, forward test, anti-overfitting
+statistics, execution realism, position sizing).
