@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from quantos.execution.costs import CostModel, FlatCostModel
+
 __all__ = ["PaperBroker", "TradeRecord"]
 
 BUY = "buy"
@@ -80,17 +82,30 @@ class PaperBroker:
     is_paper: bool = True
 
     def __init__(
-        self, cash: float = 100_000.0, fee_bps: float = 10.0, slippage_bps: float = 5.0
+        self,
+        cash: float = 100_000.0,
+        fee_bps: float = 10.0,
+        slippage_bps: float = 5.0,
+        cost_model: CostModel | None = None,
     ) -> None:
         """
         Args:
             cash: starting (paper) cash.
             fee_bps: fee per fill, basis points of notional.
             slippage_bps: adverse fill slippage, basis points of price.
+            cost_model: fill-pricing model (module 26); when omitted, a
+                :class:`~quantos.execution.costs.FlatCostModel` built from
+                ``fee_bps``/``slippage_bps`` reproduces the original flat
+                behaviour bit-for-bit (back-compatible).
         """
         self.cash = float(cash)
         self.fee_bps = float(fee_bps)
         self.slippage_bps = float(slippage_bps)
+        self.cost_model: CostModel = (
+            cost_model
+            if cost_model is not None
+            else FlatCostModel(fee_bps=float(fee_bps), slippage_bps=float(slippage_bps))
+        )
         self.positions: dict[str, float] = {}
         self.trades: list[TradeRecord] = []
 
@@ -119,8 +134,10 @@ class PaperBroker:
         price: float,
         as_of: str = "",
         dossier: dict[str, Any] | None = None,
+        book: dict[str, Any] | None = None,
+        regime: dict[str, Any] | None = None,
     ) -> TradeRecord:
-        """Fill a simulated order and record its dossier.
+        """Fill a simulated order — priced by the cost model — and record it.
 
         Args:
             symbol: market to trade.
@@ -129,6 +146,9 @@ class PaperBroker:
             price: reference price at decision time.
             as_of: decision bar timestamp (kept for reproducibility, I8).
             dossier: the full decision record behind this trade (I4).
+            book: optional current liquidity context for the cost model
+                (as-of the fill's bar only, I2).
+            regime: optional active market regime for the cost model.
 
         Returns:
             The :class:`TradeRecord` of the fill.
@@ -136,17 +156,10 @@ class PaperBroker:
         Raises:
             ValueError: on an invalid side, quantity or price.
         """
-        if side not in (BUY, SELL):
-            raise ValueError(f"side must be '{BUY}' or '{SELL}', got {side!r}")
-        if qty <= 0:
-            raise ValueError(f"qty must be positive, got {qty}")
-        if price <= 0:
-            raise ValueError(f"price must be positive, got {price}")
-
-        slip = price * self.slippage_bps / 10_000.0
-        fill_price = price + slip if side == BUY else price - slip  # always adverse
-        notional = qty * fill_price
-        fee = notional * self.fee_bps / 10_000.0
+        fill = self.cost_model.fill(side, qty, price, book=book, regime=regime)
+        fill_price = fill.fill_price
+        notional = fill.notional
+        fee = fill.fee
 
         if side == BUY:
             self.cash -= notional + fee

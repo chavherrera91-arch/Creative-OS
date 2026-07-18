@@ -19,6 +19,7 @@ from quantos.backtest.baselines import vs_baselines
 from quantos.backtest.metrics import HOURS_PER_YEAR, equity_curve, summarize
 from quantos.committee.committee import InvestmentCommittee, default_committee
 from quantos.data.models import MarketSnapshot
+from quantos.execution.costs import CostModel
 
 __all__ = ["BacktestResult", "backtest", "committee_signals"]
 
@@ -59,6 +60,36 @@ class BacktestResult:
         }
 
 
+def _model_cost_fractions(
+    cost_model: CostModel,
+    ohlcv: pd.DataFrame,
+    close: pd.Series,
+    deltas: pd.Series,
+    capital: float,
+) -> pd.Series:
+    """Per-bar cost as a fraction of equity, priced by the cost model.
+
+    Each position change of ``delta`` (fraction of equity) at bar *t* is
+    priced as an order of notional ``|delta| * capital`` at bar *t*'s close,
+    with bar *t*'s own dollar volume as the liquidity context — data as-of
+    the fill's bar only (I2).
+    """
+    costs = pd.Series(0.0, index=close.index)
+    volume = ohlcv["volume"].astype(float) if "volume" in ohlcv.columns else None
+    for ts in deltas.index[deltas != 0.0]:
+        delta = float(deltas.loc[ts])
+        price = float(close.loc[ts])
+        if price <= 0:
+            continue
+        qty = abs(delta) * capital / price
+        book = None
+        if volume is not None:
+            book = {"depth_notional": float(volume.loc[ts]) * price}
+        fill = cost_model.fill("buy" if delta > 0 else "sell", qty, price, book=book)
+        costs.loc[ts] = fill.total_cost / capital
+    return costs
+
+
 def backtest(
     ohlcv: pd.DataFrame,
     positions: pd.Series,
@@ -66,6 +97,8 @@ def backtest(
     slippage_bps: float = 5.0,
     periods_per_year: float = HOURS_PER_YEAR,
     baseline_seed: int = 7,
+    cost_model: CostModel | None = None,
+    capital: float = 100_000.0,
 ) -> BacktestResult:
     """Run a vectorised backtest of target positions over OHLCV.
 
@@ -73,10 +106,18 @@ def backtest(
         ohlcv: bar frame with a ``close`` column.
         positions: target position per bar in [-1, 1], decided *at* that bar.
             The engine lags it by one bar before computing P&L (I2).
-        fee_bps: fee per unit of turnover, basis points.
-        slippage_bps: slippage per unit of turnover, basis points.
+        fee_bps: fee per unit of turnover, basis points (flat path).
+        slippage_bps: slippage per unit of turnover, basis points (flat path).
         periods_per_year: annualisation factor for metrics.
         baseline_seed: seed for the random baseline (I8).
+        cost_model: optional fill-pricing model (module 26). When supplied it
+            replaces the flat ``fee_bps + slippage_bps`` arithmetic: each
+            position change is priced as an order of ``capital``-scaled
+            notional. A :class:`~quantos.execution.costs.FlatCostModel` with
+            the same bps reproduces the flat path exactly; a
+            :class:`~quantos.execution.costs.ZeroCostModel` reproduces the
+            cost-free gross returns (back-compatible).
+        capital: reference account size for sizing model-priced orders.
 
     Returns:
         A :class:`BacktestResult` with metrics and mandatory baselines.
@@ -88,8 +129,12 @@ def backtest(
     market = close.pct_change().fillna(0.0)
     gross = lagged * market
 
-    turnover = lagged.diff().abs().fillna(lagged.abs())
-    costs = turnover * (fee_bps + slippage_bps) / 10_000.0
+    deltas = lagged.diff().fillna(lagged)
+    turnover = deltas.abs()
+    if cost_model is None:
+        costs = turnover * (fee_bps + slippage_bps) / 10_000.0
+    else:
+        costs = _model_cost_fractions(cost_model, ohlcv, close, deltas, capital)
     net = gross - costs
 
     return BacktestResult(
