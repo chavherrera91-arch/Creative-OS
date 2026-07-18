@@ -21,6 +21,9 @@ See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the master design and
 - **I5 — Risk veto is absolute.** One veto forces FLAT regardless of confidence.
 - **I6 — Offline, no secrets.** Everything runs with numpy+pandas only; no keys.
 - **I8 — Reproducibility.** Seeded everywhere; decisions/backtests replay identically.
+- **I9 — Statistical honesty.** No single-split backtest is evidence on its own:
+  walk-forward OOS results carry a Deflated Sharpe Ratio, and PBO / purged CV
+  (`backtest.validation`) guard against data-mined edges.
 
 ## Install
 
@@ -74,6 +77,33 @@ python -m quantos.cli decide --symbol BTC/USDT --from-lake   # 5 active / 0 abst
 Optional infra (never required): `docker-compose.yml` spins up TimescaleDB +
 Redis + a dashboard placeholder. No secrets are committed; DSNs come from env.
 
+## Validation rigor (Milestone 3 — shipped)
+
+The numbers are made trustworthy end-to-end:
+
+- **Risk limit library** (`risk/limits.py`): composable rules —
+  `VolatilitySpike`, `MacroEvent`, `DailyDrawdown`, `LowLiquidity`,
+  `CorrelationBreak`, `MaxPositionSize` — each returning ok/warning/veto; the
+  `RiskManager` runs a configurable rule list and **one veto is still
+  absolute** (I5).
+- **Forward test** (`backtest/forward.py`): steps a snapshot bar-by-bar
+  feeding the paper engine — the bridge between walk-forward and paper
+  trading. Deterministic, no look-ahead, paper only.
+- **Anti-overfitting statistics** (`backtest/validation.py`, I9):
+  `deflated_sharpe` (DSR, in-house normal CDF/PPF — no scipy), `pbo`
+  (Probability of Backtest Overfitting via CSCV) and
+  `CombinatorialPurgedCV` (purge + embargo, leakage-proof). `walk_forward`
+  attaches a DSR report to every OOS result.
+- **Execution realism** (`execution/costs.py`): a pluggable `CostModel` —
+  fee + size-dependent slippage + square-root market impact,
+  liquidity/regime aware — routed through both the `PaperBroker` and the
+  backtest. `FlatCostModel`/`ZeroCostModel` reproduce the old flat
+  behaviour (back-compatible).
+- **Position sizing** (`sizing/`): `VolTargetSizer`, `FractionalKellySizer`,
+  `RiskParitySizer` turn a decision (direction + confidence) into a size
+  **bounded by the Risk Manager's limits**; the paper executor consults the
+  sizer and clamps again (I5).
+
 ## Layout
 
 ```
@@ -93,11 +123,15 @@ quantos/
 │   └── lake.py              DataLake facade: ingest/snapshot/catalog/health
 ├── features/                causal technical indicators (no look-ahead)
 ├── committee/               analysts, confidence model, risk veto, chair, decision
+├── risk/                    composable risk limit library (M3)
 ├── explain/                 explain_decision / decision_report
-├── backtest/                engine (lagged positions), walk-forward, Monte Carlo,
-│                            metrics, buy-and-hold + random baselines
+├── backtest/                engine (lagged positions), walk-forward (+DSR), Monte
+│                            Carlo, forward test, anti-overfitting statistics
+│                            (DSR/PBO/CPCV), buy-and-hold + random baselines
 ├── paper/                   PaperBroker + per-trade dossier (TradeRecord)
-├── execution/               Broker/RiskGate/ExecutionEngine ports; live HARD-DISABLED
+├── execution/               Broker/RiskGate/ExecutionEngine ports; CostModel fills;
+│                            live HARD-DISABLED
+├── sizing/                  PositionSizer port + VolTarget/Kelly/RiskParity (M3)
 └── cli.py                   decide | backtest | walkforward | montecarlo | paper |
                              ingest | catalog | health
 ```
@@ -110,6 +144,7 @@ cd quant && python -m pytest        # offline, deterministic, fast
 
 ## Status
 
-Milestones 1 (Investment Committee) and 2 (Data Infrastructure) are complete.
-Next: M3 — validation rigor (risk limits, forward test, anti-overfitting
-statistics, execution realism, position sizing).
+Milestones 1 (Investment Committee), 2 (Data Infrastructure) and 3
+(Validation rigor: risk limits, forward test, anti-overfitting statistics,
+execution realism, position sizing) are complete. Next: M4 — Market State
+Intelligence (anomaly detection, Market Regime Engine, scenario simulator).

@@ -74,8 +74,25 @@ the committee deliberate with **0 abstentions**, the lake CLI
 (`ingest|catalog|health|decide --from-lake`) and the optional
 `docker-compose.yml` infra (no secrets).
 
-Fable 5 continues milestone by milestone from **M3 — Validation rigor**,
-each work package shipping with tests and preserving every invariant in §0.
+**Milestone 3 (Validation rigor) is shipped** — WP-3.1→3.5: the composable
+risk limit library (`risk.limits`: `VolatilitySpike`, `MacroEvent`,
+`DailyDrawdown`, `LowLiquidity`, `CorrelationBreak`, `MaxPositionSize`;
+`RiskManager` runs a configurable rule list back-compatibly, one veto still
+absolute, I5), the forward test (`backtest.forward`: bar-by-bar
+committee→paper bridge, I1/I2), the anti-overfitting statistics
+(`backtest.validation`: Deflated Sharpe Ratio with an in-house normal
+CDF/PPF, CSCV-based PBO, `CombinatorialPurgedCV` with purge + embargo;
+`walk_forward` now attaches a DSR report to every OOS result, I9), execution
+realism (`execution.costs`: `CostModel` with fee + size-dependent slippage +
+square-root market impact, regime/liquidity aware, routed through
+`PaperBroker` and `backtest`, flat/zero models back-compatible) and position
+sizing (`sizing`: `VolTargetSizer`, `FractionalKellySizer`,
+`RiskParitySizer`, all bounded by the Risk Manager's limits and consulted by
+the paper executor, I5).
+
+Fable 5 continues milestone by milestone from **M4 — Market State
+Intelligence**, each work package shipping with tests and preserving every
+invariant in §0.
 
 ---
 
@@ -124,8 +141,8 @@ each work package shipping with tests and preserving every invariant in §0.
 | 4. Anomaly detector | `anomaly` | M4 | `AnomalyDetector` |
 | 5. Strategy generator | `strategy.generator`, `strategy.lab` | M5 | `Strategy`, `StrategySpec` |
 | 6. Genetic evolution | `strategy.evolution` | M5 | `Genome`, `Evolver` |
-| 7. Pro backtesting | `backtest/*` (incl. forward test) | **M1 ✅ shipped** / M3 | `BacktestResult` |
-| 8. Risk engine | `committee.risk_manager`, `risk.limits` | **M1 ✅ shipped** / M3 | `RiskManager` |
+| 7. Pro backtesting | `backtest/*` (incl. forward test) | **M1 + M3 ✅ shipped** | `BacktestResult` |
+| 8. Risk engine | `committee.risk_manager`, `risk.limits` | **M1 + M3 ✅ shipped** | `RiskManager` |
 | 9. Explainable AI | `explain/*` | **M1 ✅ shipped** | `explain_decision` |
 | 10. Continuous learning | `memory.archive`, `learning.audit` | M7 | `DecisionArchive` |
 | 11. Dashboard | `dashboard/` (Streamlit) | M8 | reads Store + Archive |
@@ -142,8 +159,8 @@ each work package shipping with tests and preserving every invariant in §0.
 | **22. Portfolio Intelligence** | `portfolio` | **M9** | `PortfolioAnalyzer` |
 | **23. Meta-Risk + Hypothesis Gen** | `risk.meta`, `research.hypotheses` | **M9** | `MetaRisk`, `HypothesisGenerator` |
 | **24. Hermes — Communications Agent** | `hermes` | **M8** | `Notifier`, `Channel`, `HermesAgent` |
-| **25. Statistical Validation** (anti-overfitting) | `backtest.validation` | **M3** | `deflated_sharpe`, `pbo`, `CombinatorialPurgedCV` |
-| **26. Execution Realism + Position Sizing** | `execution.costs`, `sizing` | **M3** | `CostModel`, `PositionSizer` |
+| **25. Statistical Validation** (anti-overfitting) | `backtest.validation` | **M3 ✅ shipped** | `deflated_sharpe`, `pbo`, `CombinatorialPurgedCV` |
+| **26. Execution Realism + Position Sizing** | `execution.costs`, `sizing` | **M3 ✅ shipped** | `CostModel`, `PositionSizer` |
 
 ### 2.3 Core contracts (the spine every module builds on)
 
