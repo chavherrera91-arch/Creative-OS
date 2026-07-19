@@ -26,12 +26,12 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 import pandas as pd
 
 from quantos.data.collector import synthetic_ohlcv
+from quantos.llm.client import LLMClient, MockLLMClient
 from quantos.strategy.base import (
     IndicatorStrategy,
     Rule,
@@ -317,49 +317,9 @@ class RandomStrategyGenerator:
 # ---------------------------------------------------------------------------
 
 
-@runtime_checkable
-class LLMClient(Protocol):
-    """The LLM port (matches the M6 ``quantos.llm.client`` contract, I7).
-
-    M5 only depends on the shape; the real Claude/OpenRouter/Ollama adapters
-    arrive in M6. Tests use :class:`MockLLMClient` exclusively (I6).
-    """
-
-    def complete(self, prompt: str, schema: dict[str, Any] | None = None) -> str:
-        """Return the model's completion for ``prompt`` (JSON when asked)."""
-        ...
-
-
-class MockLLMClient:
-    """Deterministic offline stand-in for an LLM (I6/I8).
-
-    Answers a generation prompt with a JSON array of strategy specs drawn
-    from the same grammar as :class:`RandomStrategyGenerator` (seeded by the
-    constructor), each with a stated rationale — exactly the shape the real
-    M6 client is expected to return.
-    """
-
-    def __init__(self, seed: int = 0) -> None:
-        self.seed = seed
-        self.calls: list[str] = []
-
-    def complete(self, prompt: str, schema: dict[str, Any] | None = None) -> str:
-        """Deterministically propose specs for a generation prompt."""
-        self.calls.append(prompt)
-        n = 8
-        for token in prompt.replace("=", " ").split():
-            if token.isdigit():
-                n = int(token)
-                break
-        proposals = RandomStrategyGenerator(version="llm-mock-1").generate(
-            n, seed=self.seed, diversity=0.0
-        )
-        payload = []
-        for spec in proposals:
-            record = spec.as_dict()
-            record["rationale"] = f"proposed by mock LLM: {spec.rationale}"
-            payload.append(record)
-        return json.dumps(payload)
+# The canonical LLM port lives in ``quantos.llm.client`` (M6); ``LLMClient``
+# and ``MockLLMClient`` are re-exported here unchanged for back-compat — one
+# port, one mock, no forks (I7).
 
 
 class LLMStrategyGenerator:

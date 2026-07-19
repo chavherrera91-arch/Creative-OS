@@ -28,6 +28,11 @@ ml = [
     "scikit-learn",
     "hmmlearn",
 ]
+llm = [
+    "anthropic",
+    "langfuse",
+    "langgraph",
+]
 dev = [
     "pytest",
     "hypothesis",

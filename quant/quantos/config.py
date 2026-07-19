@@ -35,6 +35,18 @@ class Settings:
         lake_root: directory the Data Lake persists under (M2); relative to
             the working directory by default, overridable via
             ``QUANTOS_LAKE_ROOT``.
+        llm_backend: LLM backend selection (M6): ``auto`` resolves
+            Claude ▸ OpenRouter ▸ Ollama ▸ Mock by available keys/servers;
+            ``claude``/``openrouter``/``ollama``/``mock`` force one. API keys
+            are **never** stored here — they stay in their own env variables
+            (``ANTHROPIC_API_KEY``/``OPENROUTER_API_KEY``), outside the
+            run-manifest record (I6).
+        llm_model: model override for the chosen backend; empty means the
+            backend's own default.
+        ollama_url: local Ollama server URL (``QUANTOS_OLLAMA_URL``) — the
+            free, key-less backend when no paid API key is configured.
+        llm_timeout: per-call timeout (seconds) for real LLM backends; on
+            breach an LLM analyst abstains rather than blocking (I3).
     """
 
     exchange_id: str = "binance"
@@ -49,6 +61,10 @@ class Settings:
     min_agreement: float = 0.5
     max_position_fraction: float = 0.25
     lake_root: str = ".quantos-lake"
+    llm_backend: str = "auto"
+    llm_model: str = ""
+    ollama_url: str = "http://localhost:11434"
+    llm_timeout: float = 30.0
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
