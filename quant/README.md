@@ -33,6 +33,7 @@ pip install -e .              # core: numpy + pandas only
 pip install -e ".[dev]"       # + pytest, hypothesis, ruff, mypy
 pip install -e ".[data]"      # + ccxt (read-only), duckdb, pyarrow (optional)
 pip install -e ".[ml]"        # + scikit-learn, hmmlearn (optional detectors/classifiers)
+pip install -e ".[llm]"       # + anthropic, langfuse, langgraph (optional LLM stack)
 ```
 
 Configuration is via `QUANTOS_*` environment variables (see `.env.example`).
@@ -173,6 +174,46 @@ The platform now *invents* strategies, then validates and culls them:
   improves across generations, deterministically per seed (I8).
   DEAP/Optuna remain optional accelerators, never required.
 
+## LLM analysts + debate + AI Challenger (Milestone 6 — shipped)
+
+The committee can now think with language models — without ever needing one:
+
+- **LLM access layer** (`llm/client.py`): the one canonical `LLMClient`
+  port (the M5 generator re-exports it) and `get_llm_client()`, which
+  resolves backends in strict priority order — **Claude** (lazy
+  `anthropic`, `ANTHROPIC_API_KEY`) ▸ **OpenRouter** (OpenAI-compatible,
+  stdlib HTTP, `OPENROUTER_API_KEY`) ▸ **local Ollama**
+  (`QUANTOS_OLLAMA_URL`, default `http://localhost:11434`, **no key
+  needed** — the free default) ▸ the deterministic **`MockLLMClient`**
+  (offline; the only backend tests use, I6/I8). Keys live only in env,
+  never in code or the manifest-pinned `Settings`; Langfuse tracing is
+  optional and lazy.
+- **LLM analyst** (`committee/llm.py`): `LLMAnalyst(category, client)`
+  plugs any backend into the unchanged `Analyst` ABC (I7). The model
+  answers a deterministic fact sheet with strict JSON (direction,
+  confidence, signed evidence, rationale); on *any* failure — client
+  error/timeout, malformed JSON, invalid fields, empty evidence,
+  sub-floor confidence, or model self-abstention — the analyst **abstains
+  honestly** with the reason recorded (I3/I4). `llm_bench(client)` builds
+  a full five-category LLM bench.
+- **Debate orchestrator** (`committee/debate.py`): `DebateCommittee` — an
+  alternative orchestrator where every analyst opines, sees a compact
+  peer summary, and may revise **once** before the Chair decides via the
+  unchanged hierarchy (regime gate ▶ absolute risk veto, I5 ▶ threshold).
+  The full debate (first round, revisions) is pinned into the decision's
+  `run_manifest` and surfaced in `explain_decision` (I4). Plain-Python
+  loop by default; LangGraph optional and lazily imported.
+- **AI Challenger** (`committee/challenger.py`, module 17): the official
+  devil's advocate. The deterministic `RuleChallenger` builds the case
+  against an approved call from the committee's own opposing evidence,
+  fresh stretch statistics (z-score over-extension, RSI extreme, elevated
+  vol) and a contradicting regime; the optional `LLMChallenger` fails
+  **safe** (agrees) on any malformed output. A material objection forces
+  exactly **one** extra deliberation round, and the decision records the
+  challenge, the provisional call, and whether the objection was decisive
+  (I4). The Challenger has **no veto** — it can neither impose nor rescue
+  one; that power stays the Risk Manager's alone (I5).
+
 ## Layout
 
 ```
@@ -191,8 +232,11 @@ quantos/
 │   ├── featurestore.py      point-in-time as_of reads (I2)
 │   └── lake.py              DataLake facade: ingest/snapshot/catalog/health
 ├── features/                causal technical indicators + regime features (M4)
-├── committee/               analysts (incl. AnomalyAnalyst), confidence model,
-│                            risk veto, chair, decision (regime + anomalies, I4)
+├── llm/                     LLMClient port + Claude/OpenRouter/Ollama/Mock
+│                            backends, lazy Langfuse tracing (M6)
+├── committee/               analysts (incl. AnomalyAnalyst + LLMAnalyst), confidence
+│                            model, risk veto, chair, decision (regime + anomalies,
+│                            I4), debate orchestrator + AI Challenger (M6)
 ├── anomaly/                 AnomalyDetector port; ZScoreDetector baseline,
 │                            IsolationForest (lazy [ml]) (M4)
 ├── regime/                  Market Regime Engine: RegimeState + rule classifier,
@@ -225,8 +269,11 @@ cd quant && python -m pytest        # offline, deterministic, fast
 
 Milestones 1 (Investment Committee), 2 (Data Infrastructure), 3
 (Validation rigor: risk limits, forward test, anti-overfitting statistics,
-execution realism, position sizing) and 4 (Market State Intelligence:
+execution realism, position sizing), 4 (Market State Intelligence:
 anomaly detection, regime features, Market Regime Engine, regime-aware
-committee, scenario simulator) and 5 (Strategy Lab: strategy spec +
+committee, scenario simulator), 5 (Strategy Lab: strategy spec +
 registry, AI strategy generator, DSR/PBO-honest lab ranking + cull,
-genetic evolution) are complete. Next: M6 — LLM analysts + debate.
+genetic evolution) and 6 (LLM analysts: canonical LLMClient port with
+Claude ▸ OpenRouter ▸ Ollama ▸ Mock resolution, honest-abstention
+LLMAnalyst, debate orchestrator, AI Challenger) are complete.
+Next: M7 — Memory & Learning.

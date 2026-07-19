@@ -136,9 +136,36 @@ selection, blend crossover, Gaussian mutation — whose mean population
 fitness provably improves across generations, deterministic per seed, I8;
 DEAP/Optuna optional, never required).
 
-Fable 5 continues milestone by milestone from **M6 — LLM analysts +
-debate**, each work package shipping with tests and preserving every
-invariant in §0.
+**Milestone 6 (LLM analysts + debate + AI Challenger) is shipped** —
+WP-6.1→6.4: the **one canonical** `LLMClient` port (`quantos.llm.client`;
+the M5 generator re-exports it — no forked ports, I7) whose
+`get_llm_client` factory resolves backends in strict priority order —
+Claude (lazy `anthropic`, `ANTHROPIC_API_KEY`) ▸ OpenRouter (stdlib HTTP,
+`OPENROUTER_API_KEY`) ▸ local Ollama (`QUANTOS_OLLAMA_URL`, **no key
+needed** — the free default) ▸ the deterministic `MockLLMClient` (offline,
+the only backend tests use, I6/I8), keys only via env and never inside the
+manifest-pinned `Settings`, with optional lazy Langfuse tracing; the
+`LLMAnalyst` (`committee.llm`) plugging any backend into the unchanged
+`Analyst` ABC (I7) and abstaining honestly on *any* failure — client
+error/timeout, malformed JSON, out-of-range fields, empty evidence,
+sub-floor confidence, or model self-abstention (I3), with the parsed
+opinion carrying real signed `Evidence` (I4); the debate protocol
+(`committee.debate`): `DebateCommittee`, an alternative orchestrator where
+every analyst sees a peer summary and may revise **once** before the Chair
+applies the unchanged hierarchy (regime gate ▶ absolute risk veto, I5 ▶
+threshold), the full debate pinned into the decision's `run_manifest` and
+surfaced in `explain_decision` (I4), plain-Python loop by default and
+LangGraph optional/lazy; and the **AI Challenger** (module 17,
+`committee.challenger`): the `Challenger` port with the deterministic
+`RuleChallenger` (counter-case from the committee's own opposing evidence,
+fresh stretch statistics and a contradicting regime) and the fail-safe
+`LLMChallenger` — a material objection triggers exactly one extra
+deliberation round and the decision records the challenge, the provisional
+call and whether the objection was decisive (I4); the Challenger holds
+**no veto** and can neither impose nor rescue one (I5).
+
+Fable 5 continues milestone by milestone from **M7 — Memory & Learning**,
+each work package shipping with tests and preserving every invariant in §0.
 
 ---
 
@@ -182,7 +209,7 @@ invariant in §0.
 | Vision module | Package(s) | Milestone | Key contract |
 | ------------- | ---------- | --------- | ------------ |
 | 1. Data Lake | `data.schema`, `data.store`, `data.connectors`, `data.ingest`, `data.quality`, `data.catalog`, `data.lake`, `data.featurestore` | **M2 ✅ shipped** | `Connector`, `Store`, `Schema` |
-| 2. Multi-agent engine | `committee/*`, `committee.llm`, `committee.debate` | **M1 ✅ shipped** / M6 | `Analyst`, `Chair` |
+| 2. Multi-agent engine | `committee/*`, `committee.llm`, `committee.debate`, `llm.client` | **M1 + M6 ✅ shipped** | `Analyst`, `Chair`, `LLMClient` |
 | 3. Confidence system | `committee.confidence` | **M1 ✅ shipped** | `ConfidenceModel` |
 | 4. Anomaly detector | `anomaly` | **M4 ✅ shipped** | `AnomalyDetector` |
 | 5. Strategy generator | `strategy.generator`, `strategy.lab` | **M5 ✅ shipped** | `Strategy`, `StrategySpec` |
@@ -197,7 +224,7 @@ invariant in §0.
 | **14. Market Regime Engine** | `regime` | **M4 ✅ shipped** | `RegimeClassifier`, `RegimeState` |
 | **15. Meta-Learning Engine** | `meta` | **M7** | `MetaLearner`, `RegimePerformanceTable` |
 | **16. Knowledge Engine** | `knowledge` | **M9** | `KnowledgeGraph`, `KnowledgeEngine` |
-| **17. AI Challenger** | `committee.challenger` | **M6** | `Challenger` |
+| **17. AI Challenger** | `committee.challenger` | **M6 ✅ shipped** | `Challenger` |
 | **18. Confidence Calibration** | `committee.calibration` | **M7** | `ConfidenceCalibrator` |
 | **19. Experiment Registry** | `research.experiments` | **M7** | `Experiment`, `ExperimentRegistry` |
 | **20. Self-Evaluation** | `learning.self_eval` | **M9** | `SelfEvaluator` |
