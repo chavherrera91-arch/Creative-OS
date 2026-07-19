@@ -13,7 +13,7 @@ from ``committee_signals`` and the engine's position lag).
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Any
 
 import pandas as pd
 
@@ -21,21 +21,9 @@ from quantos.backtest.engine import BacktestResult, backtest, committee_signals
 from quantos.backtest.metrics import HOURS_PER_YEAR
 from quantos.committee.committee import InvestmentCommittee
 from quantos.scenarios.library import Scenario, get_scenario
+from quantos.strategy.base import SignalStrategy
 
 __all__ = ["SignalStrategy", "simulate"]
-
-
-@runtime_checkable
-class SignalStrategy(Protocol):
-    """Anything that turns OHLCV into target positions in [-1, 1] (I7).
-
-    The M5 ``Strategy`` contract satisfies this; so does any object exposing
-    ``signals(ohlcv) -> Series``. Signals must be causal (I2).
-    """
-
-    def signals(self, ohlcv: pd.DataFrame) -> pd.Series:
-        """Target position per bar, using only bars ≤ t (I2)."""
-        ...
 
 
 def _positions_for(
