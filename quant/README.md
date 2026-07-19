@@ -136,6 +136,43 @@ The platform now reads the *state* of the market before deciding:
   their core segments. `simulate(strategy_or_committee, scenario)` returns a
   standard `BacktestResult`: pure research maths, no broker, no capital (I1).
 
+## Strategy Lab (Milestone 5 — shipped)
+
+The platform now *invents* strategies, then validates and culls them:
+
+- **Strategy base + registry** (`strategy/base.py`): the one canonical
+  `Strategy`/`SignalStrategy` port (the M4 simulator re-exports it), a
+  hashable, versioned `StrategySpec` (`family` + `target_regimes` for the
+  M7 Meta-Learner, content-hash identity pinned into every run, I8) and the
+  `IndicatorStrategy` compiler turning a spec (indicator blocks + params +
+  threshold rules) into causal target positions in [-1, 1] (I2, proven by
+  prefix-invariance and future-perturbation tests per block). New blocks
+  register without core edits (I7).
+- **AI strategy generator** (`strategy/generator.py`): `generate(n, seed,
+  diversity)` — a deterministic random/grammar search over five family
+  templates (trend, mean-reversion, momentum, breakout, volatility). Every
+  spec is validated runnable; batches are unique on content hash *and*
+  indicator set and gated on a Jaccard diversity metric. `generate(100)`
+  yields 100 unique valid specs, bit-for-bit reproducible per seed (I8).
+  An optional LLM backend sits behind the `LLMClient` port (real adapters
+  in M6); tests use only the deterministic `MockLLMClient` (I6).
+- **Strategy Lab** (`strategy/lab.py`): `StrategyLab.run(specs, ohlcv)`
+  backtests every candidate through the M1 engine (M3 cost model
+  pluggable) and ranks on a fitness that **folds in the M3
+  anti-overfitting statistics** (I9): positive out-of-sample Sharpe is
+  deflated by the DSR at `n_trials = batch size`, drawdown is penalised
+  and the batch's CSCV PBO is recorded — a data-mined spec with a
+  spectacular in-sample Sharpe cannot top the ranking. The weak are
+  culled (top-k + DSR floor) and every record, including the **regime the
+  batch was tested under**, is upserted to the `Store` for the M7
+  Meta-Learner. MLflow logging is lazy and optional.
+- **Genetic evolution** (`strategy/evolution.py`): `Genome` encodes a
+  spec's params + rule thresholds inside the registry's bounds;
+  `Evolver` is a dependency-free elitist GA (tournament selection, blend
+  crossover, Gaussian mutation) — mean population fitness provably
+  improves across generations, deterministically per seed (I8).
+  DEAP/Optuna remain optional accelerators, never required.
+
 ## Layout
 
 ```
@@ -161,6 +198,9 @@ quantos/
 ├── regime/                  Market Regime Engine: RegimeState + rule classifier,
 │                            GMM/HMM (lazy [ml]) (M4)
 ├── scenarios/               named scenario library + simulator (paper only) (M4)
+├── strategy/                Strategy Lab (M5): spec + block registry + compiler,
+│                            deterministic/LLM generator, DSR/PBO-honest lab,
+│                            dependency-free genetic evolution
 ├── risk/                    composable risk limit library (M3)
 ├── explain/                 explain_decision / decision_report (regime + anomaly
 │                            sections)
@@ -187,5 +227,6 @@ Milestones 1 (Investment Committee), 2 (Data Infrastructure), 3
 (Validation rigor: risk limits, forward test, anti-overfitting statistics,
 execution realism, position sizing) and 4 (Market State Intelligence:
 anomaly detection, regime features, Market Regime Engine, regime-aware
-committee, scenario simulator) are complete. Next: M5 — Strategy Lab
-(AI strategy generator + genetic evolution).
+committee, scenario simulator) and 5 (Strategy Lab: strategy spec +
+registry, AI strategy generator, DSR/PBO-honest lab ranking + cull,
+genetic evolution) are complete. Next: M6 — LLM analysts + debate.

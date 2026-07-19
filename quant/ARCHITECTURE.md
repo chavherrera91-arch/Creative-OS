@@ -111,8 +111,34 @@ ground-truth regime — all five recovered by the classifier —
 `simulate(strategy_or_committee, scenario) -> BacktestResult`, paper maths
 only, I1).
 
-Fable 5 continues milestone by milestone from **M5 — Strategy Lab**, each
-work package shipping with tests and preserving every invariant in §0.
+**Milestone 5 (Strategy Lab) is shipped** — WP-5.1→5.4: the strategy base
+(`strategy.base`: the **one canonical** `Strategy`/`SignalStrategy` port —
+the M4 simulator now re-exports it — a frozen, content-hashed, versioned
+`StrategySpec` with `family` + `target_regimes`, the `IndicatorStrategy`
+compiler from spec to causal target positions in [-1, 1] with
+prefix-invariance/future-perturbation tests per block, I2/I8, and the
+building-block registry: 10 causal indicator blocks + 5 comparators, new
+blocks pluggable without core edits, I7), the AI strategy generator
+(`strategy.generator`: deterministic random/grammar search over five family
+templates as the offline default — `generate(100)` yields 100 unique valid
+specs per seed, unique on content hash *and* indicator set, gated on a
+Jaccard diversity metric — plus an optional LLM backend behind the
+`LLMClient` port exercised only via the deterministic `MockLLMClient`), the
+Strategy Lab (`strategy.lab`: auto-backtest through the M1 engine with the
+M3 cost model pluggable, fitness = DSR-deflated OOS Sharpe at
+`n_trials = batch size` with a drawdown penalty and the batch CSCV PBO
+recorded, so a data-mined spec cannot top the ranking, I9; top-k cull with
+a DSR floor; results + the **tested regime** upserted to the `Store` for
+the M7 Meta-Learner; lazy optional MLflow) and genetic evolution
+(`strategy.evolution`: `Genome` encoding a spec's params + rule thresholds
+inside registry bounds, a dependency-free elitist GA — tournament
+selection, blend crossover, Gaussian mutation — whose mean population
+fitness provably improves across generations, deterministic per seed, I8;
+DEAP/Optuna optional, never required).
+
+Fable 5 continues milestone by milestone from **M6 — LLM analysts +
+debate**, each work package shipping with tests and preserving every
+invariant in §0.
 
 ---
 
@@ -159,8 +185,8 @@ work package shipping with tests and preserving every invariant in §0.
 | 2. Multi-agent engine | `committee/*`, `committee.llm`, `committee.debate` | **M1 ✅ shipped** / M6 | `Analyst`, `Chair` |
 | 3. Confidence system | `committee.confidence` | **M1 ✅ shipped** | `ConfidenceModel` |
 | 4. Anomaly detector | `anomaly` | **M4 ✅ shipped** | `AnomalyDetector` |
-| 5. Strategy generator | `strategy.generator`, `strategy.lab` | M5 | `Strategy`, `StrategySpec` |
-| 6. Genetic evolution | `strategy.evolution` | M5 | `Genome`, `Evolver` |
+| 5. Strategy generator | `strategy.generator`, `strategy.lab` | **M5 ✅ shipped** | `Strategy`, `StrategySpec` |
+| 6. Genetic evolution | `strategy.evolution` | **M5 ✅ shipped** | `Genome`, `Evolver` |
 | 7. Pro backtesting | `backtest/*` (incl. forward test) | **M1 + M3 ✅ shipped** | `BacktestResult` |
 | 8. Risk engine | `committee.risk_manager`, `risk.limits` | **M1 + M3 ✅ shipped** | `RiskManager` |
 | 9. Explainable AI | `explain/*` | **M1 ✅ shipped** | `explain_decision` |
