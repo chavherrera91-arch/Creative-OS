@@ -71,6 +71,28 @@ def explain_decision(decision: CommitteeDecision) -> str:
         label = decision.regime.get("label", "unknown")
         tradeable = decision.regime.get("tradeable", True)
         lines.append(f"  {label} (tradeable: {tradeable})")
+        probabilities = decision.regime.get("probabilities") or {}
+        if probabilities:
+            top = sorted(probabilities.items(), key=lambda kv: -kv[1])[:3]
+            lines.append("  probabilities: " + ", ".join(f"{k} {v:.0%}" for k, v in top))
+        for item in decision.regime.get("evidence") or []:
+            lines.append(f"  [{item.get('impact', 0.0):+.2f}] {item.get('name')}: "
+                         f"{item.get('detail')}")
+
+    if decision.anomalies:
+        lines.append(_LINE)
+        lines.append("ANOMALIES")
+        if decision.anomalies.get("active"):
+            score = float(decision.anomalies.get("score", 0.0))
+            threshold = decision.anomalies.get("threshold", 0.0)
+            lines.append(f"  ACTIVE — composite score {score:.1f} (threshold {threshold:.1f})")
+            for kind, report in sorted((decision.anomalies.get("kinds") or {}).items()):
+                if report.get("flag"):
+                    lines.append(
+                        f"  {kind.replace('_', ' ')}: score {float(report['score']):.1f}"
+                    )
+        else:
+            lines.append("  no active anomalies")
 
     lines.append(_LINE)
     lines.append("REASONS FOR (bullish evidence)")

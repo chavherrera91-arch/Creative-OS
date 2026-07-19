@@ -42,6 +42,7 @@ class Chair:
         """Render the final :class:`CommitteeDecision` via the hierarchy above."""
         context = context or {}
         regime: dict[str, Any] = dict(context.get("regime") or {})
+        anomalies: dict[str, Any] = dict(context.get("anomalies") or {})
         strategies: list[dict[str, Any]] = list(context.get("strategies_considered") or [])
         reasons: list[str] = []
 
@@ -90,6 +91,15 @@ class Chair:
                     f"composite direction {report.direction.value}"
                 )
 
+        # Active anomalies are always noted in the record, whatever the
+        # outcome — unusual market conditions are part of the audit trail (I4).
+        if anomalies.get("active"):
+            flagged = [k for k, v in (anomalies.get("kinds") or {}).items() if v.get("flag")]
+            detail = ", ".join(sorted(flagged)) or "composite"
+            reasons.append(
+                f"anomaly noted: {detail} (score {float(anomalies.get('score', 0.0)):.1f})"
+            )
+
         return CommitteeDecision(
             symbol=snapshot.symbol,
             timeframe=snapshot.timeframe,
@@ -103,6 +113,7 @@ class Chair:
             confidence_report=report,
             risk=risk,
             regime=regime,
+            anomalies=anomalies,
             strategies_considered=strategies,
             run_manifest=dict(run_manifest or {}),
             as_of=snapshot.as_of,

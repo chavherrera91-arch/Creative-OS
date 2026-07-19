@@ -36,6 +36,9 @@ class CommitteeDecision:
         confidence_report: the aggregated conviction view.
         risk: the Risk Manager's assessment.
         regime: active market regime (populated from M4; empty in M1).
+        anomalies: active anomaly summary at decision time (populated from
+            M4; empty before). Recorded so unusual market conditions are part
+            of the auditable record (I4).
         strategies_considered: regime-validated strategies consulted
             (populated from M7; empty in M1).
         run_manifest: everything needed to replay this decision (I8).
@@ -55,6 +58,7 @@ class CommitteeDecision:
     confidence_report: ConfidenceReport | None = None
     risk: RiskAssessment | None = None
     regime: dict[str, Any] = field(default_factory=dict)
+    anomalies: dict[str, Any] = field(default_factory=dict)
     strategies_considered: list[dict[str, Any]] = field(default_factory=list)
     run_manifest: dict[str, Any] = field(default_factory=dict)
     as_of: str = ""
@@ -76,6 +80,7 @@ class CommitteeDecision:
             ),
             "risk": self.risk.as_dict() if self.risk else None,
             "regime": dict(self.regime),
+            "anomalies": dict(self.anomalies),
             "strategies_considered": list(self.strategies_considered),
             "run_manifest": dict(self.run_manifest),
             "as_of": self.as_of,

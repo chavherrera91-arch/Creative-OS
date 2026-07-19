@@ -24,6 +24,10 @@ research = [
     "duckdb",
     "pyarrow",
 ]
+ml = [
+    "scikit-learn",
+    "hmmlearn",
+]
 dev = [
     "pytest",
     "hypothesis",

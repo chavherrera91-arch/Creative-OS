@@ -1,10 +1,12 @@
 """Specialist analysts (ARCHITECTURE §3).
 
-Five deterministic, rule-based specialists. The technical and statistical
+Deterministic, rule-based specialists. The technical and statistical
 analysts work from OHLCV; the macro, sentiment and on-chain analysts are
 data-hungry and **abstain honestly** when their channel is absent from the
 snapshot (invariant I3) — real channel data arrives with the M2 Data Lake.
-LLM-backed analysts (M6) will plug into the same ``Analyst`` ABC (I7).
+The :class:`AnomalyAnalyst` (M4) surfaces unusual market conditions as
+direction-neutral caution. LLM-backed analysts (M6) will plug into the same
+``Analyst`` ABC (I7).
 """
 
 from __future__ import annotations
@@ -13,12 +15,15 @@ from typing import Any
 
 import numpy as np
 
-from quantos.committee.base import Analyst, AnalystOpinion, Evidence
+from quantos.anomaly.base import AnomalyDetector, anomaly_summary
+from quantos.anomaly.detectors import ZScoreDetector
+from quantos.committee.base import Analyst, AnalystOpinion, Direction, Evidence
 from quantos.data.models import MarketSnapshot
 from quantos.features import indicators as ind
 
 __all__ = [
     "MIN_BARS",
+    "AnomalyAnalyst",
     "MacroAnalyst",
     "OnChainAnalyst",
     "SentimentAnalyst",
@@ -285,6 +290,71 @@ class OnChainAnalyst(Analyst):
         if not evidence:
             return self._abstain("on-chain channel present but carries no known fields")
         return self._from_evidence(evidence)
+
+
+class AnomalyAnalyst(Analyst):
+    """Unusual market conditions as explicit, direction-neutral caution (M4).
+
+    Reads the anomaly summary from the deliberation context (``anomalies``,
+    injected by the orchestrator per ARCHITECTURE §4) or computes it from the
+    snapshot with its own dependency-free detector. With **no active anomaly
+    it abstains honestly** (I3) — silence carries no conviction. With an
+    active anomaly it emits a FLAT stance whose confidence scales with
+    severity: the evidence is direction-neutral (an anomaly says "trust this
+    tape less", not "short it"), so in aggregation it dampens the composite
+    conviction rather than picking a side.
+    """
+
+    def __init__(
+        self, name: str = "Anomaly Analyst", detector: AnomalyDetector | None = None
+    ) -> None:
+        super().__init__(name=name, category="anomaly")
+        self.detector: AnomalyDetector = detector or ZScoreDetector()
+
+    def analyze(
+        self, snapshot: MarketSnapshot, context: dict[str, Any] | None = None
+    ) -> AnalystOpinion:
+        summary = (context or {}).get("anomalies")
+        if not isinstance(summary, dict):
+            if snapshot.bars < MIN_BARS:
+                return self._abstain(f"insufficient history ({snapshot.bars} < {MIN_BARS} bars)")
+            summary = anomaly_summary(self.detector, snapshot.ohlcv)
+        if not summary.get("active"):
+            return self._abstain("no active anomalies at the last bar")
+
+        threshold = float(summary.get("threshold", 1.0)) or 1.0
+        kinds: dict[str, Any] = summary.get("kinds") or {}
+        evidence = [
+            Evidence(
+                name=f"anomaly_{kind}",
+                detail=(
+                    f"{kind.replace('_', ' ')} at {float(report['score']):.1f} "
+                    f"(threshold {threshold:.1f}) — direction-neutral caution"
+                ),
+                impact=0.0,
+                value=float(report["score"]),
+            )
+            for kind, report in sorted(kinds.items())
+            if report.get("flag")
+        ]
+        if not evidence:
+            evidence = [
+                Evidence(
+                    name="anomaly_composite",
+                    detail=f"composite anomaly score {float(summary.get('score', 0.0)):.1f} "
+                    f"(threshold {threshold:.1f}) — direction-neutral caution",
+                    impact=0.0,
+                    value=float(summary.get("score", 0.0)),
+                )
+            ]
+        severity = min(1.0, float(summary.get("score", 0.0)) / (2.0 * threshold))
+        return AnalystOpinion(
+            analyst=self.name,
+            category=self.category,
+            direction=Direction.FLAT,
+            confidence=severity,
+            evidence=evidence,
+        )
 
 
 def default_analysts() -> list[Analyst]:
