@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import Any
 
 from quantos.committee.base import AnalystOpinion
+from quantos.committee.challenger import Challenger
 from quantos.committee.committee import InvestmentCommittee
 from quantos.committee.decision import CommitteeDecision
 from quantos.data.models import MarketSnapshot
@@ -50,17 +51,27 @@ class DebateCommittee(InvestmentCommittee):
     same decision (I8).
     """
 
-    def __init__(self, *args: Any, use_langgraph: bool = False, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        *args: Any,
+        use_langgraph: bool = False,
+        challenger: Challenger | None = None,
+        **kwargs: Any,
+    ) -> None:
         """
         Args:
             *args: forwarded to :class:`InvestmentCommittee`.
             use_langgraph: route the debate through a LangGraph state graph
                 (optional dependency, lazily imported); the plain-Python
                 loop — identical semantics — is the default (I6).
+            challenger: optional devil's advocate (M6 WP-6.4). A *material*
+                objection to the provisional decision triggers exactly one
+                extra deliberation round; the Challenger never vetoes (I5).
             **kwargs: forwarded to :class:`InvestmentCommittee`.
         """
         super().__init__(*args, **kwargs)
         self.use_langgraph = use_langgraph
+        self.challenger = challenger
 
     # -- debate steps (shared by both execution paths) ---------------------
 
@@ -114,26 +125,33 @@ class DebateCommittee(InvestmentCommittee):
         decision = self.chair.decide(
             snapshot, final, report, risk, context=debate_context, run_manifest=manifest
         )
+        self._append_debate_reason(decision, manifest["debate"])
+        return decision
+
+    def _append_debate_reason(
+        self, decision: CommitteeDecision, debate: dict[str, Any]
+    ) -> None:
+        """Surface the debate in the Chair's reasons (I4)."""
+        revised = list(debate.get("revised", []))
         decision.reasons.append(
             f"debate protocol: {len(self.analysts)} analysts saw peer summaries and could "
             f"revise once — {len(revised)} revised"
             + (f" ({', '.join(revised)})" if revised else "")
         )
-        return decision
 
     # -- execution paths ---------------------------------------------------
 
     def _deliberate_python(
         self, snapshot: MarketSnapshot, context: dict[str, Any]
-    ) -> CommitteeDecision:
+    ) -> tuple[CommitteeDecision, dict[str, Any]]:
         """The dependency-free debate loop (offline default, I6)."""
         first = self._first_round(snapshot, context)
         final, debate_context = self._revision_round(snapshot, context, first)
-        return self._decide(snapshot, debate_context, first, final)
+        return self._decide(snapshot, debate_context, first, final), debate_context
 
     def _deliberate_langgraph(
         self, snapshot: MarketSnapshot, context: dict[str, Any]
-    ) -> CommitteeDecision:
+    ) -> tuple[CommitteeDecision, dict[str, Any]]:
         """The same debate as a LangGraph state graph (optional, lazy).
 
         Raises:
@@ -173,6 +191,69 @@ class DebateCommittee(InvestmentCommittee):
         graph.add_edge("decide", END)
         state = graph.compile().invoke({})
         decision: CommitteeDecision = state["decision"]
+        debate_context: dict[str, Any] = state["debate_context"]
+        return decision, debate_context
+
+    # -- the challenge step (WP-6.4) ----------------------------------------
+
+    def _apply_challenge(
+        self,
+        snapshot: MarketSnapshot,
+        debate_context: dict[str, Any],
+        provisional: CommitteeDecision,
+    ) -> CommitteeDecision:
+        """Let the Challenger contest the provisional decision (module 17).
+
+        A non-material challenge is recorded and the decision stands. A
+        *material* objection triggers exactly **one** extra deliberation
+        round with the objection in context; the final decision records the
+        challenge and whether it was decisive (I4). The Challenger never
+        vetoes — the re-round still passes through the unchanged Risk
+        Manager and Chair hierarchy (I5).
+        """
+        assert self.challenger is not None
+        challenge = self.challenger.contest(provisional, snapshot)
+        record = challenge.as_dict()
+        if not challenge.material:
+            provisional.run_manifest["challenge"] = {
+                **record,
+                "extra_round": False,
+                "decisive": False,
+            }
+            provisional.reasons.append(
+                f"challenger ({challenge.challenger}) raised no material objection — "
+                "the decision stands"
+            )
+            return provisional
+
+        challenge_context = {**debate_context, "challenge": record}
+        opinions = [analyst.analyze(snapshot, challenge_context) for analyst in self.analysts]
+        report = self.confidence_model.aggregate(opinions)
+        risk = self.risk_manager.assess(snapshot, report, challenge_context)
+        manifest = self._run_manifest(snapshot)
+        manifest["debate"] = dict(provisional.run_manifest.get("debate", {}))
+        decision = self.chair.decide(
+            snapshot, opinions, report, risk, context=challenge_context, run_manifest=manifest
+        )
+        decisive = (
+            decision.direction is not provisional.direction
+            or decision.approved != provisional.approved
+        )
+        decision.run_manifest["challenge"] = {
+            **record,
+            "extra_round": True,
+            "decisive": decisive,
+            "provisional": {
+                "direction": provisional.direction.value,
+                "approved": provisional.approved,
+                "confidence": provisional.confidence,
+            },
+        }
+        self._append_debate_reason(decision, manifest["debate"])
+        decision.reasons.append(
+            f"challenger objection was {'DECISIVE' if decisive else 'not decisive'} "
+            f"after one extra round (the challenger has no veto, I5): {challenge.argument}"
+        )
         return decision
 
     # -- the orchestrator contract ------------------------------------------
@@ -189,9 +270,14 @@ class DebateCommittee(InvestmentCommittee):
 
         Returns:
             The same auditable, reproducible :class:`CommitteeDecision` type
-            as the default orchestrator, with the debate recorded (I4).
+            as the default orchestrator, with the debate — and, when a
+            challenger is configured, the challenge — recorded (I4).
         """
         enriched = self._enrich_context(snapshot, context)
         if self.use_langgraph:
-            return self._deliberate_langgraph(snapshot, enriched)
-        return self._deliberate_python(snapshot, enriched)
+            provisional, debate_context = self._deliberate_langgraph(snapshot, enriched)
+        else:
+            provisional, debate_context = self._deliberate_python(snapshot, enriched)
+        if self.challenger is None:
+            return provisional
+        return self._apply_challenge(snapshot, debate_context, provisional)
