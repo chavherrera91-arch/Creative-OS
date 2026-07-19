@@ -32,6 +32,7 @@ cd quant
 pip install -e .              # core: numpy + pandas only
 pip install -e ".[dev]"       # + pytest, hypothesis, ruff, mypy
 pip install -e ".[data]"      # + ccxt (read-only), duckdb, pyarrow (optional)
+pip install -e ".[ml]"        # + scikit-learn, hmmlearn (optional detectors/classifiers)
 ```
 
 Configuration is via `QUANTOS_*` environment variables (see `.env.example`).
@@ -104,6 +105,37 @@ The numbers are made trustworthy end-to-end:
   **bounded by the Risk Manager's limits**; the paper executor consults the
   sizer and clamps again (I5).
 
+## Market State Intelligence (Milestone 4 — shipped)
+
+The platform now reads the *state* of the market before deciding:
+
+- **Anomaly detector** (`anomaly/`): the `AnomalyDetector` port with a
+  dependency-free `ZScoreDetector` baseline — causal per-kind z-scores over
+  volume spikes, volatility bursts, price gaps and suspected wash-trading
+  (baselines shifted one bar so a spike never hides in its own statistics,
+  I2) — plus an optional `IsolationForestDetector` behind lazy `[ml]`.
+- **Regime features** (`features/regime_features.py`): no-look-ahead trend
+  strength (ADX, EMA slope), realised & ATR volatility, range-vs-trend
+  character (Hurst, Kaufman efficiency ratio), volume regime and macro-event
+  proximity from the `events` channel — all prefix-invariant (I2).
+- **Market Regime Engine** (`regime/`): `RegimeClassifier` port +
+  `RegimeState` (label `TREND_UP|TREND_DOWN|RANGE|HIGH_VOL|LOW_VOL|
+  MACRO_EVENT|CRISIS`, per-label probabilities, driving features and signed
+  `Evidence` explaining the call, I4). The `RuleRegimeClassifier` baseline
+  is an explicit, deterministic cascade (I8); `GmmRegimeClassifier` /
+  `HmmRegimeClassifier` fit statistical components behind lazy `[ml]` and
+  name them via the same rule engine — explainable either way.
+- **Regime-aware committee** (`regime_aware_committee()`): deliberations are
+  enriched with the classified `regime` + active `anomalies`, an
+  `AnomalyAnalyst` surfaces direction-neutral caution, the Chair's **regime
+  gate** stands down in an untradeable regime (before the risk veto, which
+  stays absolute, I5), and the decision records both (I4).
+- **Scenario simulator** (`scenarios/`): `COVID_CRASH`, `FTX`, `ETF_RALLY`,
+  `BEAR_2022`, `BULL_2021` as parameterised synthetic generators, each
+  labelling its ground-truth regime — the Regime Engine recovers all five on
+  their core segments. `simulate(strategy_or_committee, scenario)` returns a
+  standard `BacktestResult`: pure research maths, no broker, no capital (I1).
+
 ## Layout
 
 ```
@@ -121,10 +153,17 @@ quantos/
 │   ├── catalog.py           dataset inventory + lineage
 │   ├── featurestore.py      point-in-time as_of reads (I2)
 │   └── lake.py              DataLake facade: ingest/snapshot/catalog/health
-├── features/                causal technical indicators (no look-ahead)
-├── committee/               analysts, confidence model, risk veto, chair, decision
+├── features/                causal technical indicators + regime features (M4)
+├── committee/               analysts (incl. AnomalyAnalyst), confidence model,
+│                            risk veto, chair, decision (regime + anomalies, I4)
+├── anomaly/                 AnomalyDetector port; ZScoreDetector baseline,
+│                            IsolationForest (lazy [ml]) (M4)
+├── regime/                  Market Regime Engine: RegimeState + rule classifier,
+│                            GMM/HMM (lazy [ml]) (M4)
+├── scenarios/               named scenario library + simulator (paper only) (M4)
 ├── risk/                    composable risk limit library (M3)
-├── explain/                 explain_decision / decision_report
+├── explain/                 explain_decision / decision_report (regime + anomaly
+│                            sections)
 ├── backtest/                engine (lagged positions), walk-forward (+DSR), Monte
 │                            Carlo, forward test, anti-overfitting statistics
 │                            (DSR/PBO/CPCV), buy-and-hold + random baselines
@@ -144,7 +183,9 @@ cd quant && python -m pytest        # offline, deterministic, fast
 
 ## Status
 
-Milestones 1 (Investment Committee), 2 (Data Infrastructure) and 3
+Milestones 1 (Investment Committee), 2 (Data Infrastructure), 3
 (Validation rigor: risk limits, forward test, anti-overfitting statistics,
-execution realism, position sizing) are complete. Next: M4 — Market State
-Intelligence (anomaly detection, Market Regime Engine, scenario simulator).
+execution realism, position sizing) and 4 (Market State Intelligence:
+anomaly detection, regime features, Market Regime Engine, regime-aware
+committee, scenario simulator) are complete. Next: M5 — Strategy Lab
+(AI strategy generator + genetic evolution).

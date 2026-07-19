@@ -1,1 +1,1 @@
-"""Feature engineering: causal technical indicators (regime features in M4)."""
+"""Feature engineering: causal technical indicators + regime features (M4)."""

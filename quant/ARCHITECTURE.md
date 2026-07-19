@@ -90,9 +90,29 @@ sizing (`sizing`: `VolTargetSizer`, `FractionalKellySizer`,
 `RiskParitySizer`, all bounded by the Risk Manager's limits and consulted by
 the paper executor, I5).
 
-Fable 5 continues milestone by milestone from **M4 — Market State
-Intelligence**, each work package shipping with tests and preserving every
-invariant in §0.
+**Milestone 4 (Market State Intelligence) is shipped** — WP-4.1→4.5: the
+anomaly detector (`anomaly`: `AnomalyDetector` port, dependency-free
+`ZScoreDetector` over volume spikes / volatility bursts / gaps / suspected
+wash-trading with one-bar-shifted causal baselines, lazy
+`IsolationForestDetector` behind `[ml]`), the regime feature set
+(`features.regime_features`: ADX, EMA slope, Hurst, efficiency ratio,
+realised/ATR vol, volume regime, macro-event proximity — all
+prefix-invariant, I2), the Market Regime Engine (`regime`: `RegimeState`
+with probabilities + driving features + signed `Evidence`, the
+deterministic `RuleRegimeClassifier` cascade, lazy GMM/HMM backends whose
+learned components are named by the same rule engine), the regime-aware
+committee (`regime_aware_committee()`: context enriched with `regime` +
+`anomalies`, `AnomalyAnalyst` direction-neutral caution, the Chair's
+regime gate standing down in untradeable regimes ahead of the still-absolute
+risk veto, both recorded in the decision and in `explain_decision`, I4/I5)
+and the scenario simulator (`scenarios`: `COVID_CRASH`, `FTX`, `ETF_RALLY`,
+`BEAR_2022`, `BULL_2021` as seeded synthetic generators labelling their
+ground-truth regime — all five recovered by the classifier —
+`simulate(strategy_or_committee, scenario) -> BacktestResult`, paper maths
+only, I1).
+
+Fable 5 continues milestone by milestone from **M5 — Strategy Lab**, each
+work package shipping with tests and preserving every invariant in §0.
 
 ---
 
@@ -138,7 +158,7 @@ invariant in §0.
 | 1. Data Lake | `data.schema`, `data.store`, `data.connectors`, `data.ingest`, `data.quality`, `data.catalog`, `data.lake`, `data.featurestore` | **M2 ✅ shipped** | `Connector`, `Store`, `Schema` |
 | 2. Multi-agent engine | `committee/*`, `committee.llm`, `committee.debate` | **M1 ✅ shipped** / M6 | `Analyst`, `Chair` |
 | 3. Confidence system | `committee.confidence` | **M1 ✅ shipped** | `ConfidenceModel` |
-| 4. Anomaly detector | `anomaly` | M4 | `AnomalyDetector` |
+| 4. Anomaly detector | `anomaly` | **M4 ✅ shipped** | `AnomalyDetector` |
 | 5. Strategy generator | `strategy.generator`, `strategy.lab` | M5 | `Strategy`, `StrategySpec` |
 | 6. Genetic evolution | `strategy.evolution` | M5 | `Genome`, `Evolver` |
 | 7. Pro backtesting | `backtest/*` (incl. forward test) | **M1 + M3 ✅ shipped** | `BacktestResult` |
@@ -147,15 +167,15 @@ invariant in §0.
 | 10. Continuous learning | `memory.archive`, `learning.audit` | M7 | `DecisionArchive` |
 | 11. Dashboard | `dashboard/` (Streamlit) | M8 | reads Store + Archive |
 | 12. Memory (RAG) | `memory.rag` | M7 | `MemoryStore` |
-| 13. Scenario simulator | `scenarios` | M4 | `Scenario` |
-| **14. Market Regime Engine** | `regime` | **M4** | `RegimeClassifier`, `RegimeState` |
+| 13. Scenario simulator | `scenarios` | **M4 ✅ shipped** | `Scenario` |
+| **14. Market Regime Engine** | `regime` | **M4 ✅ shipped** | `RegimeClassifier`, `RegimeState` |
 | **15. Meta-Learning Engine** | `meta` | **M7** | `MetaLearner`, `RegimePerformanceTable` |
 | **16. Knowledge Engine** | `knowledge` | **M9** | `KnowledgeGraph`, `KnowledgeEngine` |
 | **17. AI Challenger** | `committee.challenger` | **M6** | `Challenger` |
 | **18. Confidence Calibration** | `committee.calibration` | **M7** | `ConfidenceCalibrator` |
 | **19. Experiment Registry** | `research.experiments` | **M7** | `Experiment`, `ExperimentRegistry` |
 | **20. Self-Evaluation** | `learning.self_eval` | **M9** | `SelfEvaluator` |
-| **21. Market Simulator** (real-time replay) | `scenarios.simulator` (extend), `sim` | **M4 / M9** | `MarketSimulator` |
+| **21. Market Simulator** (real-time replay) | `scenarios.simulator` (extend), `sim` | **M4 ✅ shipped** / M9 replay | `MarketSimulator` |
 | **22. Portfolio Intelligence** | `portfolio` | **M9** | `PortfolioAnalyzer` |
 | **23. Meta-Risk + Hypothesis Gen** | `risk.meta`, `research.hypotheses` | **M9** | `MetaRisk`, `HypothesisGenerator` |
 | **24. Hermes — Communications Agent** | `hermes` | **M8** | `Notifier`, `Channel`, `HermesAgent` |
