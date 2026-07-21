@@ -184,8 +184,27 @@ map, cold-start identity, drop-in `CalibratedConfidenceModel`, I7) and the
 Experiment Registry (`research.experiments`: immutable
 hypothesis→result→conclusion ledger, content-addressed and replayable, I8).
 
-Fable 5 continues milestone by milestone from **M8 — Presentation &
-Delivery**, each work package shipping with tests and preserving every
+**Milestone 8 (Presentation & Delivery) is shipped** — WP-8.1→8.3: the
+dashboard (`dashboard.panels`: UI-free single-series panel builders —
+equity, drawdown, metrics tiles, positions, decision narrative, regime
+history, calibration reliability, news, lab results — plus
+`dashboard.app`, a lazily-imported Streamlit shell behind the
+`[dashboard]` extra; every panel is plain DataFrames/dicts and fully
+testable offline, I6), observability (`obs.ExperimentLogger`: MLflow when
+the `[obs]` extra exists, an identical deterministic local-JSON run store
+otherwise, I8; `obs.metrics`: in-house Counter/Gauge registry rendering
+Prometheus text exposition with no dependency) and Hermes
+(`hermes`: `HermesEvent` + `Notifier` with per-kind routing, content-hash
+dedupe and a sliding-window rate limit on an injectable clock;
+`ConsoleChannel` offline default plus env-only Telegram/Discord/Email
+adapters; the `Hermes` agent announces decisions with the recorded
+explanation as the alert body (I4) and answers questions by retrieving
+archived episodes through the TF-IDF memory — optional LLM phrasing falls
+back to the deterministic template, and a guard test proves the package
+exposes no execution path, I1).
+
+Fable 5 continues milestone by milestone from **M9 — Intelligence
+Expansion**, each work package shipping with tests and preserving every
 invariant in §0.
 
 ---
@@ -239,7 +258,7 @@ invariant in §0.
 | 8. Risk engine | `committee.risk_manager`, `risk.limits` | **M1 + M3 ✅ shipped** | `RiskManager` |
 | 9. Explainable AI | `explain/*` | **M1 ✅ shipped** | `explain_decision` |
 | 10. Continuous learning | `memory.archive`, `learning.audit` | **M7 ✅ shipped** | `DecisionArchive` |
-| 11. Dashboard | `dashboard/` (Streamlit) | M8 | reads Store + Archive |
+| 11. Dashboard | `dashboard/` (Streamlit) | **M8 ✅ shipped** | reads Store + Archive |
 | 12. Memory (RAG) | `memory.rag` | **M7 ✅ shipped** | `MemoryStore` |
 | 13. Scenario simulator | `scenarios` | **M4 ✅ shipped** | `Scenario` |
 | **14. Market Regime Engine** | `regime` | **M4 ✅ shipped** | `RegimeClassifier`, `RegimeState` |
@@ -252,7 +271,7 @@ invariant in §0.
 | **21. Market Simulator** (real-time replay) | `scenarios.simulator` (extend), `sim` | **M4 ✅ shipped** / M9 replay | `MarketSimulator` |
 | **22. Portfolio Intelligence** | `portfolio` | **M9** | `PortfolioAnalyzer` |
 | **23. Meta-Risk + Hypothesis Gen** | `risk.meta`, `research.hypotheses` | **M9** | `MetaRisk`, `HypothesisGenerator` |
-| **24. Hermes — Communications Agent** | `hermes` | **M8** | `Notifier`, `Channel`, `HermesAgent` |
+| **24. Hermes — Communications Agent** | `hermes` | **M8 ✅ shipped** | `Notifier`, `Channel`, `HermesAgent` |
 | **25. Statistical Validation** (anti-overfitting) | `backtest.validation` | **M3 ✅ shipped** | `deflated_sharpe`, `pbo`, `CombinatorialPurgedCV` |
 | **26. Execution Realism + Position Sizing** | `execution.costs`, `sizing` | **M3 ✅ shipped** | `CostModel`, `PositionSizer` |
 

@@ -252,6 +252,34 @@ The loop is closed — every decision is remembered, scored, and learned from:
   scientific-lab ledger — hypothesis → pinned setup → result → conclusion,
   content-addressed, idempotent, immutable once completed, replayable (I8).
 
+## Presentation & Delivery (Milestone 8 — shipped)
+
+The platform now shows its work and speaks for itself:
+
+- **Dashboard** (`dashboard/`): `panels.py` builds every view as plain
+  data — equity and drawdown as separate single-series frames, metric
+  tiles, open positions, the decision narrative (`explain_decision`),
+  regime history, calibration reliability, news and Strategy-Lab results —
+  fully testable offline (I6). `app.py` is a thin Streamlit shell behind
+  the `[dashboard]` extra, imported lazily; nothing in quantos ever
+  requires it.
+- **Observability** (`obs/`): `ExperimentLogger` records runs
+  (params/metrics/tags) through MLflow when the `[obs]` extra exists and
+  through an identical deterministic local-JSON store otherwise (I8);
+  `metrics.py` is an in-house Counter/Gauge registry that renders standard
+  Prometheus text exposition with zero dependencies.
+- **Hermes** (`hermes/`, module 24): the read-only communications agent.
+  Outbound, `Notifier` routes `HermesEvent`s (decision, veto,
+  regime_change, anomaly, digest, hypothesis) per kind with content-hash
+  dedupe and a sliding-window rate limit on an injectable clock;
+  `ConsoleChannel` is the offline default and Telegram/Discord/Email
+  adapters read their tokens **only** from env. Alert bodies are the
+  decision's already-recorded explanation (I4). Inbound, `answer()`
+  retrieves archived episodes via the TF-IDF memory and reports what the
+  record says — optional LLM phrasing falls back to the deterministic
+  template, and a guard test proves the package has **no execution path**
+  (I1): Hermes informs, it never trades.
+
 ## Layout
 
 ```
@@ -300,6 +328,10 @@ quantos/
 ├── learning/                the Auditor: outcome mining + propose-only fixes (M7)
 ├── research/                Experiment Registry: immutable hypothesis ledger (M7)
 ├── pipeline.py              ResearchPipeline: regime -> meta -> committee (§4, M7)
+├── dashboard/               UI-free panel builders + lazy Streamlit app (M8)
+├── obs/                     ExperimentLogger (MLflow or local-JSON) + Prometheus-
+│                            text metrics registry (M8)
+├── hermes/                  read-only comms agent: events, Notifier, channels (M8)
 └── cli.py                   decide | backtest | walkforward | montecarlo | paper |
                              ingest | catalog | health
 ```
@@ -320,7 +352,11 @@ committee, scenario simulator), 5 (Strategy Lab: strategy spec +
 registry, AI strategy generator, DSR/PBO-honest lab ranking + cull,
 genetic evolution), 6 (LLM analysts: canonical LLMClient port with
 Claude ▸ OpenRouter ▸ Ollama ▸ Mock resolution, honest-abstention
-LLMAnalyst, debate orchestrator, AI Challenger) and 7 (Memory & Learning:
+LLMAnalyst, debate orchestrator, AI Challenger), 7 (Memory & Learning:
 Decision Archive, RAG memory, Meta-Learning Engine, research pipeline,
-Auditor, Confidence Calibration, Experiment Registry) are complete.
-Next: M8 — Presentation & Delivery (dashboard, Hermes, observability).
+Auditor, Confidence Calibration, Experiment Registry) and 8 (Presentation
+& Delivery: offline dashboard panels + lazy Streamlit app, experiment
+logging + metrics, the read-only Hermes communications agent) are
+complete. Next: M9 — Intelligence Expansion (Knowledge Engine, Portfolio
+Intelligence, Meta-Risk, Self-Evaluation, Hypothesis Generator, replay
+simulator).
