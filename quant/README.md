@@ -214,6 +214,44 @@ The committee can now think with language models — without ever needing one:
   (I4). The Challenger has **no veto** — it can neither impose nor rescue
   one; that power stays the Risk Manager's alone (I5).
 
+## Memory & Learning (Milestone 7 — shipped)
+
+The loop is closed — every decision is remembered, scored, and learned from:
+
+- **Decision Archive** (`memory/archive.py`): every decision's full dossier
+  (regime, strategies, evidence, run manifest) persists to the Store under a
+  content-addressed id — idempotent recording, bit-for-bit replay (I8) —
+  and is later closed with its realised outcome. Queryable by symbol,
+  window, regime and state; `closed()` is the learning corpus.
+- **RAG memory** (`memory/rag.py`): the `MemoryStore` port with an in-house
+  TF-IDF retriever (numpy only, deterministic) over archived episodes —
+  `query("CPI")` recalls the past CPI failure with its regime and outcome
+  attached; a pluggable `embedder` swaps in vector search.
+- **Meta-Learning Engine** (`meta/`, module 15): the `RegimePerformanceTable`
+  accumulates validated evidence per (strategy family, regime) from Strategy
+  Lab survivors and closed outcomes; `BaselineMetaLearner.select` admits
+  **only regime-validated families** with a per-family verdict (I4), stands
+  down when none qualify, and `update()` moves families in and out of
+  validation as outcomes change.
+- **Research pipeline** (`pipeline.py`): the full ARCHITECTURE §4 flow in one
+  call — classify regime → meta-select → selected strategies emit signals →
+  committee deliberates; the decision records regime, strategies considered
+  and verdicts. Untradeable regime → Chair's gate; no validated family →
+  meta gate, verdicts in the reasons.
+- **The Auditor** (`learning/audit.py`): scores every non-abstained opinion
+  against realised outcomes (abstention is never punished, I3), breaks pnl
+  down by regime and family, and emits **proposals** — lower a persistently
+  wrong analyst's weight, revoke a dying family's validation — never
+  auto-applied (§4.1).
+- **Confidence Calibration** (`committee/calibration.py`, module 18): a
+  binned, monotone, regime-aware stated-vs-realised map — "90%" that wins
+  60% calibrates to ~0.60; identity until history exists. The drop-in
+  `CalibratedConfidenceModel` re-applies the threshold on calibrated
+  confidence with zero core edits (I7).
+- **Experiment Registry** (`research/experiments.py`, module 19): the
+  scientific-lab ledger — hypothesis → pinned setup → result → conclusion,
+  content-addressed, idempotent, immutable once completed, replayable (I8).
+
 ## Layout
 
 ```
@@ -255,6 +293,13 @@ quantos/
 ├── execution/               Broker/RiskGate/ExecutionEngine ports; CostModel fills;
 │                            live HARD-DISABLED
 ├── sizing/                  PositionSizer port + VolTarget/Kelly/RiskParity (M3)
+├── memory/                  Decision Archive (dossiers + outcomes) + MemoryStore
+│                            port + TF-IDF RAG recall (M7)
+├── meta/                    Meta-Learning Engine: regime x family performance
+│                            table + gated selection (M7)
+├── learning/                the Auditor: outcome mining + propose-only fixes (M7)
+├── research/                Experiment Registry: immutable hypothesis ledger (M7)
+├── pipeline.py              ResearchPipeline: regime -> meta -> committee (§4, M7)
 └── cli.py                   decide | backtest | walkforward | montecarlo | paper |
                              ingest | catalog | health
 ```
@@ -273,7 +318,9 @@ execution realism, position sizing), 4 (Market State Intelligence:
 anomaly detection, regime features, Market Regime Engine, regime-aware
 committee, scenario simulator), 5 (Strategy Lab: strategy spec +
 registry, AI strategy generator, DSR/PBO-honest lab ranking + cull,
-genetic evolution) and 6 (LLM analysts: canonical LLMClient port with
+genetic evolution), 6 (LLM analysts: canonical LLMClient port with
 Claude ▸ OpenRouter ▸ Ollama ▸ Mock resolution, honest-abstention
-LLMAnalyst, debate orchestrator, AI Challenger) are complete.
-Next: M7 — Memory & Learning.
+LLMAnalyst, debate orchestrator, AI Challenger) and 7 (Memory & Learning:
+Decision Archive, RAG memory, Meta-Learning Engine, research pipeline,
+Auditor, Confidence Calibration, Experiment Registry) are complete.
+Next: M8 — Presentation & Delivery (dashboard, Hermes, observability).

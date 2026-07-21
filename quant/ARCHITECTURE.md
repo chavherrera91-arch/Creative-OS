@@ -164,8 +164,29 @@ deliberation round and the decision records the challenge, the provisional
 call and whether the objection was decisive (I4); the Challenger holds
 **no veto** and can neither impose nor rescue one (I5).
 
-Fable 5 continues milestone by milestone from **M7 — Memory & Learning**,
-each work package shipping with tests and preserving every invariant in §0.
+**Milestone 7 (Memory & Learning) is shipped** — WP-7.1→7.7: the Decision
+Archive (`memory.archive`: content-addressed dossiers + realised outcomes
+over the Store, queryable by symbol/window/regime, replayable from the
+pinned manifest, I4/I8), RAG memory (`memory.rag`: `MemoryStore` port with
+an in-house TF-IDF retriever — `query("CPI")` recalls the past CPI failure
+with regime and outcome attached; pluggable embedder), the Meta-Learning
+Engine (`meta`: `RegimePerformanceTable` fed by Strategy Lab survivors and
+closed outcomes; `BaselineMetaLearner.select` admits only regime-validated
+families with per-family verdicts, stand-down when none, continuous
+`update`), the research pipeline (`pipeline.ResearchPipeline`: the full §4
+flow — classify regime → meta-select → selected strategies emit signals →
+committee; Chair's gate for untradeable regimes, meta gate with recorded
+verdicts for unvalidated ones), the Auditor (`learning.audit`: scores every
+non-abstained opinion against outcomes, finds the weakest analyst and dying
+families, emits propose-never-apply adjustments, §4.1), Confidence
+Calibration (`committee.calibration`: binned regime-aware stated-vs-realised
+map, cold-start identity, drop-in `CalibratedConfidenceModel`, I7) and the
+Experiment Registry (`research.experiments`: immutable
+hypothesis→result→conclusion ledger, content-addressed and replayable, I8).
+
+Fable 5 continues milestone by milestone from **M8 — Presentation &
+Delivery**, each work package shipping with tests and preserving every
+invariant in §0.
 
 ---
 
@@ -217,16 +238,16 @@ each work package shipping with tests and preserving every invariant in §0.
 | 7. Pro backtesting | `backtest/*` (incl. forward test) | **M1 + M3 ✅ shipped** | `BacktestResult` |
 | 8. Risk engine | `committee.risk_manager`, `risk.limits` | **M1 + M3 ✅ shipped** | `RiskManager` |
 | 9. Explainable AI | `explain/*` | **M1 ✅ shipped** | `explain_decision` |
-| 10. Continuous learning | `memory.archive`, `learning.audit` | M7 | `DecisionArchive` |
+| 10. Continuous learning | `memory.archive`, `learning.audit` | **M7 ✅ shipped** | `DecisionArchive` |
 | 11. Dashboard | `dashboard/` (Streamlit) | M8 | reads Store + Archive |
-| 12. Memory (RAG) | `memory.rag` | M7 | `MemoryStore` |
+| 12. Memory (RAG) | `memory.rag` | **M7 ✅ shipped** | `MemoryStore` |
 | 13. Scenario simulator | `scenarios` | **M4 ✅ shipped** | `Scenario` |
 | **14. Market Regime Engine** | `regime` | **M4 ✅ shipped** | `RegimeClassifier`, `RegimeState` |
-| **15. Meta-Learning Engine** | `meta` | **M7** | `MetaLearner`, `RegimePerformanceTable` |
+| **15. Meta-Learning Engine** | `meta` | **M7 ✅ shipped** | `MetaLearner`, `RegimePerformanceTable` |
 | **16. Knowledge Engine** | `knowledge` | **M9** | `KnowledgeGraph`, `KnowledgeEngine` |
 | **17. AI Challenger** | `committee.challenger` | **M6 ✅ shipped** | `Challenger` |
-| **18. Confidence Calibration** | `committee.calibration` | **M7** | `ConfidenceCalibrator` |
-| **19. Experiment Registry** | `research.experiments` | **M7** | `Experiment`, `ExperimentRegistry` |
+| **18. Confidence Calibration** | `committee.calibration` | **M7 ✅ shipped** | `ConfidenceCalibrator` |
+| **19. Experiment Registry** | `research.experiments` | **M7 ✅ shipped** | `Experiment`, `ExperimentRegistry` |
 | **20. Self-Evaluation** | `learning.self_eval` | **M9** | `SelfEvaluator` |
 | **21. Market Simulator** (real-time replay) | `scenarios.simulator` (extend), `sim` | **M4 ✅ shipped** / M9 replay | `MarketSimulator` |
 | **22. Portfolio Intelligence** | `portfolio` | **M9** | `PortfolioAnalyzer` |
