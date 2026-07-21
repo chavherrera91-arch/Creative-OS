@@ -33,6 +33,13 @@ llm = [
     "langfuse",
     "langgraph",
 ]
+dashboard = [
+    "streamlit",
+]
+obs = [
+    "mlflow",
+    "prometheus-client",
+]
 dev = [
     "pytest",
     "hypothesis",

@@ -1,0 +1,110 @@
+"""WP-8.1 — dashboard smoke: panels build from a seeded store, no UI needed."""
+
+from __future__ import annotations
+
+import json
+import sys
+
+import pandas as pd
+import pytest
+
+from quantos.backtest.engine import backtest
+from quantos.committee.calibration import ConfidenceCalibrator
+from quantos.committee.committee import default_committee
+from quantos.dashboard.panels import build_dashboard_data, equity_panel
+from quantos.data.models import MarketSnapshot
+from quantos.data.store import DuckDBStore
+from quantos.memory import DecisionArchive
+from quantos.paper.broker import PaperBroker
+from tests.conftest import make_ohlcv
+from tests.test_archive import fake_record
+from tests.test_calibration import archive_with
+
+
+def seeded_world() -> dict:
+    """A small end-to-end fixture: store + archive + backtest + broker + decision."""
+    ohlcv = make_ohlcv(n=200, seed=7, drift=0.003, vol=0.005)
+    store = DuckDBStore()
+    store.upsert(
+        "curated",
+        "news",
+        pd.DataFrame(
+            {
+                "symbol": ["BTC/USDT"] * 2,
+                "event_time": pd.date_range("2024-01-01", periods=2, freq="1h", tz="UTC"),
+                "headline": ["ETF flows accelerate", "CPI print cooler than expected"],
+                "tag": ["flows", "macro"],
+                "sentiment": [0.4, 0.2],
+            }
+        ),
+        keys=["symbol", "event_time"],
+    )
+    archive = DecisionArchive()
+    did = archive.record(fake_record())
+    archive.record_outcome(did, pnl=5.0)
+
+    broker = PaperBroker(cash=10_000.0)
+    broker.submit("BTC/USDT", "buy", qty=0.1, price=100.0)
+
+    decision = default_committee().deliberate(MarketSnapshot("BTC/USDT", "1h", ohlcv))
+    result = backtest(ohlcv, pd.Series(1.0, index=ohlcv.index))
+    calibrator = ConfidenceCalibrator().fit(archive_with(0.9, wins=12, losses=8))
+    return {
+        "store": store,
+        "archive": archive,
+        "broker": broker,
+        "decision": decision,
+        "result": result,
+        "calibrator": calibrator,
+    }
+
+
+class TestPanels:
+    def test_full_dashboard_data_builds_offline(self) -> None:
+        world = seeded_world()
+        data = build_dashboard_data(
+            world["store"],
+            world["archive"],
+            backtest=world["result"],
+            broker=world["broker"],
+            decision=world["decision"],
+            calibrator=world["calibrator"],
+        )
+        assert data["metrics"]["n_trades"] >= 0
+        assert data["equity"]["final_equity"] > 0
+        assert data["equity"]["max_drawdown"] <= 0
+        assert data["positions"]["open_positions"][0]["symbol"] == "BTC/USDT"
+        assert "DECISION" in data["decision"]["narrative"]  # the full narrative rides along
+        assert data["regimes"]["rows"][0]["regime"] == "TREND_UP"
+        assert len(data["news"]["rows"]) == 2
+        assert data["reliability"]["fitted"] is True
+
+    def test_equity_and_drawdown_are_separate_single_series(self) -> None:
+        """dataviz: two charts, one series each — never a dual axis."""
+        world = seeded_world()
+        panel = equity_panel(world["result"])
+        assert list(panel["equity"].columns) == ["equity"]
+        assert list(panel["drawdown"].columns) == ["drawdown"]
+
+    def test_panel_data_is_json_friendly(self) -> None:
+        world = seeded_world()
+        data = build_dashboard_data(world["store"], world["archive"])
+        json.dumps(data, default=str)
+
+    def test_empty_world_still_builds(self) -> None:
+        data = build_dashboard_data(DuckDBStore(), DecisionArchive())
+        assert data["news"]["rows"] == [] and data["lab"]["rows"] == []
+
+
+class TestAppImport:
+    def test_app_imports_without_streamlit(self) -> None:
+        assert "streamlit" not in sys.modules
+        import quantos.dashboard.app  # noqa: F401 — must not require the extra (I6)
+
+        assert "streamlit" not in sys.modules
+
+    def test_main_raises_helpfully_without_the_extra(self) -> None:
+        from quantos.dashboard.app import _require_streamlit
+
+        with pytest.raises(ImportError, match=r"\[dashboard\]"):
+            _require_streamlit()
