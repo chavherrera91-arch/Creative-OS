@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -160,3 +161,11 @@ class TestLauncher:
         from quantos.dashboard.launch import log_path
 
         assert log_path().name == "last-run.log"
+
+    def test_email_prompt_is_pre_answered(self, tmp_path: Path) -> None:
+        from quantos.dashboard.launch import ensure_no_email_prompt
+
+        cred = ensure_no_email_prompt(home=tmp_path)
+        assert cred.read_text() == '[general]\nemail = ""\n'  # blank email, no prompt
+        # Idempotent: a second call keeps the file.
+        assert ensure_no_email_prompt(home=tmp_path) == cred

@@ -54,15 +54,20 @@ def venv_python(venv: Path) -> Path:
 
 
 def ensure_venv(venv: Path) -> Path:
-    """Crea ``.venv`` e instala quantos[dashboard] si aún no existe."""
+    """Crea ``.venv`` (si falta) e instala/re-apunta quantos[dashboard] a ESTA carpeta.
+
+    El ``pip install -e`` corre siempre — así, si vuelves a correr el instalador
+    desde una descarga nueva, el entorno usa ese código (no el de una carpeta
+    vieja). Es rápido cuando las dependencias ya están.
+    """
     python = venv_python(venv)
-    if python.exists():
-        print(f"Entorno ya existe: {venv}")
-        return python
-    print(f"Creando entorno en {venv} (una sola vez, puede tardar un par de minutos)...")
-    venv.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.check_call([sys.executable, "-m", "venv", str(venv)])
-    subprocess.check_call([str(python), "-m", "pip", "install", "--upgrade", "pip"])
+    if not python.exists():
+        print(f"Creando entorno en {venv} (una sola vez, puede tardar un par de minutos)...")
+        venv.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.check_call([sys.executable, "-m", "venv", str(venv)])
+        subprocess.check_call([str(python), "-m", "pip", "install", "--upgrade", "pip"])
+    else:
+        print(f"Entorno ya existe: {venv} (actualizando al código de esta carpeta)")
     subprocess.check_call([str(python), "-m", "pip", "install", "-e", f"{REPO}[dashboard]"])
     return python
 

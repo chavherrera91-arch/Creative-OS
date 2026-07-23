@@ -46,6 +46,20 @@ def log_path() -> Path:
     return base / "quantos" / "last-run.log"
 
 
+def ensure_no_email_prompt(home: Path | None = None) -> Path:
+    """Pre-answer Streamlit's first-run 'Email:' prompt (blank).
+
+    On first launch Streamlit blocks on an interactive email question; under
+    the silent launcher there is no console to answer it, so the app hangs
+    forever. Writing an empty credential skips the prompt for good.
+    """
+    cred = (home or Path.home()) / ".streamlit" / "credentials.toml"
+    if not cred.exists():
+        cred.parent.mkdir(parents=True, exist_ok=True)
+        cred.write_text('[general]\nemail = ""\n', encoding="utf-8")
+    return cred
+
+
 def main(
     argv: Sequence[str] | None = None, runner: Callable[[list[str]], int] | None = None
 ) -> int:
@@ -62,6 +76,7 @@ def main(
 
     import subprocess  # pragma: no cover - real launch path
 
+    ensure_no_email_prompt()  # never hang on Streamlit's first-run email question
     log = log_path()
     log.parent.mkdir(parents=True, exist_ok=True)
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # hide the console on Windows
