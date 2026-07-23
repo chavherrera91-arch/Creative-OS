@@ -156,8 +156,17 @@ def run_strategy_lab(
     (profitable out-of-sample and past the honesty gate) or *discarded*, with
     a plain reason — the research funnel made visible (I9). Deterministic (I8).
     """
+    from quantos.backtest.scorecard import evaluate
+
     specs = RandomStrategyGenerator().generate(n_candidates, seed=seed, diversity=0.5)
     result = StrategyLab(top_k=top_k, min_dsr=min_dsr, symbol=symbol).run(specs, ohlcv)
+
+    survivors = result.survivors
+    scorecard = (
+        evaluate(IndicatorStrategy(survivors[0]), ohlcv, n_trials=len(specs)).as_dict()
+        if survivors
+        else None
+    )
     rows = []
     for record in result.records:
         oos = float(record.oos_metrics.get("sharpe", 0.0))
@@ -179,4 +188,5 @@ def run_strategy_lab(
         "pbo": result.pbo,
         "regimen": result.tested_regime,
         "rows": rows,
+        "scorecard": scorecard,  # full report card for the top survivor
     }

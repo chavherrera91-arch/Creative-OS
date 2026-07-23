@@ -284,10 +284,27 @@ def _strategy_lab_section(st: Any, scenario: str, seed: int) -> None:  # pragma:
     )
     frame = pd.DataFrame(lab["rows"])
     st.dataframe(frame, width="stretch", hide_index=True)
+
+    card = lab.get("scorecard")
+    if card:
+        st.markdown("#### 🏅 Boleta de la mejor estrategia")
+        ready = card["verdict"].startswith("READY")
+        good = card["score"] >= 70
+        cols = st.columns([1, 2])
+        cols[0].metric("Strategy Score", f"{card['score']}/100")
+        (st.success if ready else st.warning if good else st.error)(
+            f"Veredicto: **{card['verdict']}**"
+        )
+        st.dataframe(pd.DataFrame(card["checks"]), width="stretch", hide_index=True)
+        st.caption(
+            "No basta con ganar: una estrategia buena demuestra una ventaja **consistente** "
+            "en muchas operaciones, fuera de muestra, en varios regímenes y resistente a "
+            "cambios de parámetros (anti-sobreajuste)."
+        )
     st.info(
         "En datos **simulados** los números salen exagerados (el mercado de ejemplo es "
-        "demasiado limpio). Lo que de verdad importa es **confianza_real** — la probabilidad "
-        "de que la ventaja no sea suerte. Con **Exchange real** los números son realistas."
+        "demasiado limpio). Lo que de verdad importa es la **boleta completa** — no un solo "
+        "número. Con **Exchange real** los valores son realistas."
     )
 
 
