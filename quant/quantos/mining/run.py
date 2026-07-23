@@ -28,7 +28,13 @@ def log_path() -> Path:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="quantos strategy miner (paper research).")
-    parser.add_argument("--symbol", default="BTC/USDT", help="market to mine (real data)")
+    parser.add_argument("--symbol", default="BTC/USDT", help="par a minar, ej. BTC/USDT o EUR/USD")
+    parser.add_argument(
+        "--market",
+        default="crypto",
+        choices=("crypto", "forex"),
+        help="crypto (Binance/ccxt) o forex (Yahoo Finance)",
+    )
     parser.add_argument(
         "--interval", type=float, default=1800.0, help="seconds between digs (default 30 min)"
     )
@@ -52,6 +58,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         min_dsr=args.min_dsr,
         n_candidates=max(2, args.candidates),
         force_synthetic=args.synthetic,
+        market=args.market,
     )
     log = log_path()
     log.parent.mkdir(parents=True, exist_ok=True)

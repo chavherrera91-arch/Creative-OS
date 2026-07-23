@@ -17,6 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 data = [
     "ccxt",
+    "yfinance",
     "duckdb",
     "pyarrow",
 ]

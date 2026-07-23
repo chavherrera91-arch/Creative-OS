@@ -42,6 +42,7 @@ class StrategyMiner:
         min_dsr: float = 0.6,
         seed: int = 7,
         force_synthetic: bool = False,
+        market: str = "crypto",
     ) -> None:
         """
         Args:
@@ -64,26 +65,34 @@ class StrategyMiner:
         self.min_dsr = min_dsr
         self.seed = seed
         self.force_synthetic = force_synthetic
+        self.market = market
 
     # -- data ----------------------------------------------------------------
     def _load_ohlcv(self, round_index: int) -> tuple[pd.DataFrame, str]:
-        """Real exchange bars when reachable, else a rotating synthetic scenario."""
+        """Real market bars when reachable, else a rotating synthetic scenario."""
         if not self.force_synthetic:
-            from quantos.config import Settings
-            from quantos.data.collector import DataCollector
+            if self.market == "forex":
+                from quantos.data.forex import fetch_forex_ohlcv
 
-            settings = Settings(
-                **{  # type: ignore[arg-type]
-                    **Settings.from_env().as_dict(),
-                    "symbol": self.symbol,
-                    "timeframe": self.timeframe,
-                    "bars": self.bars,
-                }
-            )
-            collector = DataCollector(settings=settings, force_synthetic=False)
-            frame = collector.fetch_ohlcv()
-            if collector.last_source == "ccxt":
-                return frame, "ccxt"
+                frame, source = fetch_forex_ohlcv(self.symbol, self.timeframe, self.bars)
+                if source == "yfinance":
+                    return frame, "yfinance"
+            else:
+                from quantos.config import Settings
+                from quantos.data.collector import DataCollector
+
+                settings = Settings(
+                    **{  # type: ignore[arg-type]
+                        **Settings.from_env().as_dict(),
+                        "symbol": self.symbol,
+                        "timeframe": self.timeframe,
+                        "bars": self.bars,
+                    }
+                )
+                collector = DataCollector(settings=settings, force_synthetic=False)
+                frame = collector.fetch_ohlcv()
+                if collector.last_source == "ccxt":
+                    return frame, "ccxt"
         names = scenario_names()
         scenario = get_scenario(names[round_index % len(names)])
         return scenario.generate(self.seed + round_index), scenario.name
