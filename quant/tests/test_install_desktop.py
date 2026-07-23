@@ -61,6 +61,40 @@ def test_windows_stop_only_kills_our_python(tmp_path: Path) -> None:
     assert 'InStr(p.CommandLine, "quantos")' in text  # filtered, not a blanket taskkill
 
 
+def test_linux_launcher_references_the_icon(tmp_path: Path) -> None:
+    launcher = ins.write_launcher(tmp_path, tmp_path / "py", "Linux")
+    assert "Icon=" in launcher.read_text()
+    assert "quantos.png" in launcher.read_text()
+
+
+class TestIcon:
+    def test_icon_assets_exist_and_are_valid(self) -> None:
+        assets = Path(ins.__file__).resolve().parent / "quantos" / "dashboard" / "assets"
+        png = (assets / "quantos.png").read_bytes()
+        ico = (assets / "quantos.ico").read_bytes()
+        assert png[:8] == b"\x89PNG\r\n\x1a\n"  # valid PNG signature
+        assert ico[:4] == b"\x00\x00\x01\x00"  # valid ICO header
+        assert (assets / "quantos.svg").exists()
+
+    def test_icon_path_per_os(self) -> None:
+        assert ins.icon_path("Windows").name == "quantos.ico"
+        assert ins.icon_path("Linux").name == "quantos.png"
+        assert ins.icon_path("Darwin").name == "quantos.png"
+
+
+def test_windows_shortcut_script_sets_icon_and_target(tmp_path: Path) -> None:
+    lnk, target, icon, workdir = (
+        tmp_path / "quantos.lnk",
+        tmp_path / "quantos.vbs",
+        tmp_path / "quantos.ico",
+        tmp_path,
+    )
+    script = ins.windows_shortcut_script([(lnk, target, icon, workdir)])
+    assert "CreateShortcut" in script
+    assert str(lnk) in script and str(target) in script
+    assert f'IconLocation = "{icon}"' in script  # the custom logo, not the generic icon
+
+
 def test_no_install_needs_an_existing_venv(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
     # With --no-install and a missing venv it fails loudly instead of guessing.
     code = ins.main(["--no-install", "--venv", str(tmp_path / "absent")])

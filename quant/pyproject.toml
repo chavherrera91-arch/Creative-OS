@@ -55,6 +55,9 @@ quantos-app = "quantos.dashboard.launch:main"
 [tool.setuptools.packages.find]
 include = ["quantos*"]
 
+[tool.setuptools.package-data]
+"quantos.dashboard" = ["assets/*"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]

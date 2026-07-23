@@ -22,6 +22,12 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent
+ASSETS = REPO / "quantos" / "dashboard" / "assets"
+
+
+def icon_path(system: str, assets: Path = ASSETS) -> Path:
+    """The icon file for ``system`` — .ico on Windows, .png elsewhere."""
+    return assets / ("quantos.ico" if system == "Windows" else "quantos.png")
 
 
 def venv_python(venv: Path) -> Path:
@@ -82,6 +88,7 @@ def write_launcher(dest: Path, python: Path, system: str, repo: Path = REPO) -> 
             "Comment=AI Quant Research Platform (research only)\n"
             f'Exec="{python}" -m quantos.dashboard.launch\n'
             f"Path={repo}\n"
+            f"Icon={icon_path('Linux')}\n"
             "Terminal=true\n"
             "Categories=Office;Finance;\n",
             encoding="utf-8",
@@ -99,7 +106,7 @@ def write_stop_launcher(dest: Path, system: str) -> Path:
         path.write_text(
             'Set svc = GetObject("winmgmts:\\\\.\\root\\cimv2")\r\n'
             "Set procs = svc.ExecQuery("
-            '"SELECT * FROM Win32_Process WHERE Name=\'python.exe\' OR Name=\'pythonw.exe\'")\r\n'
+            "\"SELECT * FROM Win32_Process WHERE Name='python.exe' OR Name='pythonw.exe'\")\r\n"
             "For Each p In procs\r\n"
             "  If Not IsNull(p.CommandLine) Then\r\n"
             '    If InStr(p.CommandLine, "quantos") > 0 And InStr(p.CommandLine, "dashboard") > 0 '
@@ -114,8 +121,7 @@ def write_stop_launcher(dest: Path, system: str) -> Path:
     elif system == "Darwin":
         path = dest / "Detener quantos.command"
         path.write_text(
-            "#!/bin/bash\npkill -f 'quantos.*dashboard'\n"
-            'echo "quantos se detuvo."; sleep 1\n',
+            "#!/bin/bash\npkill -f 'quantos.*dashboard'\necho \"quantos se detuvo.\"; sleep 1\n",
             encoding="utf-8",
         )
         path.chmod(0o755)
@@ -127,12 +133,31 @@ def write_stop_launcher(dest: Path, system: str) -> Path:
             "Name=Detener quantos\n"
             "Comment=Stop the running quantos app\n"
             "Exec=pkill -f 'quantos.*dashboard'\n"
+            f"Icon={icon_path('Linux')}\n"
             "Terminal=false\n"
             "Categories=Office;Finance;\n",
             encoding="utf-8",
         )
         path.chmod(0o755)
     return path
+
+
+def windows_shortcut_script(shortcuts: list[tuple[Path, Path, Path, Path]]) -> str:
+    """VBScript that creates Windows .lnk shortcuts (target, icon, workdir).
+
+    Each tuple is ``(lnk, target, icon, workdir)``. Double-clicking the .lnk
+    runs the target .vbs but shows the custom icon — the professional look.
+    """
+    lines = ['Set sh = CreateObject("WScript.Shell")']
+    for i, (lnk, target, icon, workdir) in enumerate(shortcuts):
+        lines += [
+            f'Set s{i} = sh.CreateShortcut("{lnk}")',
+            f's{i}.TargetPath = "{target}"',
+            f's{i}.IconLocation = "{icon}"',
+            f's{i}.WorkingDirectory = "{workdir}"',
+            f"s{i}.Save",
+        ]
+    return "\r\n".join(lines) + "\r\n"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -150,16 +175,53 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     desktop = desktop_dir()
-    launcher = write_launcher(desktop, python, platform.system())
-    stopper = write_stop_launcher(desktop, platform.system())
+    system = platform.system()
+
+    if system == "Windows":
+        names = _install_windows(desktop, python)
+    else:
+        launcher = write_launcher(desktop, python, system)
+        stopper = write_stop_launcher(desktop, system)
+        names = (launcher.name, stopper.name)
+
     print("\n¡Listo! Se crearon 2 íconos en tu Escritorio:")
-    print(f"   ▶  {launcher.name}   (abrir la app)")
-    print(f"   ■  {stopper.name}   (detenerla)")
+    print(f"   ▶  {names[0]}   (abrir la app)")
+    print(f"   ■  {names[1]}   (detenerla)")
     print(f"\nEscritorio: {desktop}")
     print("Haz doble clic en el primero para abrir la app en tu navegador.")
-    if platform.system() == "Darwin":
+    if system == "Darwin":
         print("(La primera vez, si macOS pregunta, permite abrirlo: clic derecho → Abrir.)")
+        print("(Para el ícono con logo: clic en el archivo → Obtener información → arrastra")
+        print(f" {icon_path('Darwin')} sobre el ícono chico arriba a la izquierda.)")
     return 0
+
+
+def _install_windows(desktop: Path, python: Path) -> tuple[str, str]:
+    """Windows: .vbs launchers in the repo + desktop .lnk shortcuts with the logo.
+
+    Falls back to plain .vbs files on the desktop if shortcut creation fails,
+    so the app is always reachable even without the custom icon.
+    """
+    launchers = REPO / ".launchers"
+    launchers.mkdir(exist_ok=True)
+    start = write_launcher(launchers, python, "Windows")
+    stop = write_stop_launcher(launchers, "Windows")
+    icon = icon_path("Windows")
+    lnks = (desktop / "quantos.lnk", desktop / "Detener quantos.lnk")
+    script = windows_shortcut_script([(lnks[0], start, icon, REPO), (lnks[1], stop, icon, REPO)])
+    try:  # pragma: no cover - real Windows shortcut path
+        import subprocess
+        import tempfile
+
+        helper = Path(tempfile.gettempdir()) / "_quantos_mkshortcut.vbs"
+        helper.write_text(script, encoding="utf-8")
+        subprocess.check_call(["cscript", "//nologo", str(helper)])
+        helper.unlink(missing_ok=True)
+        return (lnks[0].name, lnks[1].name)
+    except Exception:  # noqa: BLE001 - fall back to plain launchers on the desktop
+        s1 = write_launcher(desktop, python, "Windows")
+        s2 = write_stop_launcher(desktop, "Windows")
+        return (s1.name, s2.name)
 
 
 if __name__ == "__main__":
