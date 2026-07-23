@@ -54,6 +54,12 @@ class TestMiner:
         assert summary["gold_found"] >= 1  # found some validated strategies
         assert len(vault) == summary["vault_size"]
 
+    def test_candidates_count_is_configurable(self, tmp_path: Path) -> None:
+        """More candidates per round = more tested; the DSR gate auto-adjusts."""
+        vault = StrategyVault(path=tmp_path / "v.json")
+        summary = StrategyMiner(vault=vault, force_synthetic=True, n_candidates=50).dig(0)
+        assert summary["tested"] == 50  # honours the requested batch size
+
     def test_run_loops_and_accumulates(self, tmp_path: Path) -> None:
         vault = StrategyVault(path=tmp_path / "v.json")
         miner = StrategyMiner(vault=vault, force_synthetic=True, n_candidates=30)

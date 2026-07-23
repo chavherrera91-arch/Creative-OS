@@ -35,6 +35,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--rounds", type=int, default=None, help="stop after N digs (else forever)")
     parser.add_argument("--min-dsr", type=float, default=0.6, help="honesty gate for gold (I9)")
     parser.add_argument(
+        "--candidates",
+        type=int,
+        default=40,
+        help="strategies tested per round (más = más exploración, mismo rigor)",
+    )
+    parser.add_argument(
         "--synthetic", action="store_true", help="mine synthetic scenarios (no network)"
     )
     args = parser.parse_args(argv)
@@ -44,6 +50,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         vault=vault,
         symbol=args.symbol,
         min_dsr=args.min_dsr,
+        n_candidates=max(2, args.candidates),
         force_synthetic=args.synthetic,
     )
     log = log_path()

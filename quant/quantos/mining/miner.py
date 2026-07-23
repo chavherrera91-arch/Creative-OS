@@ -88,13 +88,30 @@ class StrategyMiner:
         scenario = get_scenario(names[round_index % len(names)])
         return scenario.generate(self.seed + round_index), scenario.name
 
+    def _generate(self, seed: int) -> list:
+        """Generate a batch, backing off if the grammar can't fill the request.
+
+        The generator can only build so many *distinct, diverse* strategies
+        (~130 with the current families); asking for more raises rather than
+        repeating. Rather than lose the round, we step down to the largest
+        batch the grammar can honestly produce.
+        """
+        from quantos.strategy.generator import GenerationError
+
+        n = self.n_candidates
+        while True:
+            try:
+                return RandomStrategyGenerator().generate(n, seed=seed, diversity=0.5)
+            except GenerationError:
+                if n <= 8:
+                    raise
+                n = int(n * 0.75)
+
     # -- one dig -------------------------------------------------------------
     def dig(self, round_index: int = 0) -> dict[str, Any]:
         """Generate, test, and stash survivors for one round; return a summary."""
         ohlcv, source = self._load_ohlcv(round_index)
-        specs = RandomStrategyGenerator().generate(
-            self.n_candidates, seed=self.seed + round_index, diversity=0.5
-        )
+        specs = self._generate(self.seed + round_index)
         result = StrategyLab(top_k=self.top_k, min_dsr=self.min_dsr, symbol=self.symbol).run(
             specs, ohlcv
         )
