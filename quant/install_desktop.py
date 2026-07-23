@@ -68,7 +68,7 @@ def ensure_venv(venv: Path) -> Path:
         subprocess.check_call([str(python), "-m", "pip", "install", "--upgrade", "pip"])
     else:
         print(f"Entorno ya existe: {venv} (actualizando al código de esta carpeta)")
-    subprocess.check_call([str(python), "-m", "pip", "install", "-e", f"{REPO}[dashboard]"])
+    subprocess.check_call([str(python), "-m", "pip", "install", "-e", f"{REPO}[data,dashboard]"])
     return python
 
 

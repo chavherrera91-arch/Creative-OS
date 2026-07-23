@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from quantos.dashboard.demo import build_live_data
+from quantos.dashboard.demo import build_live_data, load_lab_ohlcv, run_strategy_lab
 from quantos.scenarios.library import scenario_names
 
 __all__ = ["main"]
@@ -105,6 +105,43 @@ def main() -> None:  # pragma: no cover - UI shell
             "will not claim calibration it hasn't earned yet (I3/I9). Points appear once "
             "enough decisions close."
         )
+
+    _strategy_lab_section(st, scenario, seed)
+
+
+def _strategy_lab_section(st: Any, scenario: str, seed: int) -> None:  # pragma: no cover - UI
+    """Generate many strategies, test them, keep the profitable ones, drop the rest."""
+    import pandas as pd
+
+    st.divider()
+    st.subheader("🧪 Laboratorio de Estrategias")
+    st.caption(
+        "Genera muchas estrategias, las prueba con un examen honesto, **guarda** las "
+        "rentables y **descarta** el resto."
+    )
+    col_a, col_b = st.columns([1, 1])
+    source_label = col_a.radio("Datos", ["Demo (simulado)", "Exchange real"], horizontal=True)
+    symbol = col_b.text_input("Símbolo (para exchange real)", value="BTC/USDT")
+
+    if not st.button("Buscar estrategias rentables", type="primary"):
+        return
+    source = "real" if source_label.startswith("Exchange") else "demo"
+    with st.spinner("Probando 30 estrategias… (unos segundos)"):
+        ohlcv, data_label = load_lab_ohlcv(source, scenario, symbol, seed)
+        lab = run_strategy_lab(ohlcv, symbol, seed)
+
+    st.caption(
+        f"Datos: **{data_label}** · régimen **{lab['regimen']}** · "
+        f"probadas **{lab['probadas']}** → guardadas **{lab['guardadas']}** · "
+        f"riesgo de sobreajuste (PBO) {lab['pbo']:.0%}"
+    )
+    frame = pd.DataFrame(lab["rows"])
+    st.dataframe(frame, width="stretch", hide_index=True)
+    st.info(
+        "En datos **simulados** los números salen exagerados (el mercado de ejemplo es "
+        "demasiado limpio). Lo que de verdad importa es **confianza_real** — la probabilidad "
+        "de que la ventaja no sea suerte. Con **Exchange real** los números son realistas."
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover

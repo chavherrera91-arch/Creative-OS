@@ -131,6 +131,21 @@ class TestLiveData:
         b = build_live_data("ETF_RALLY", seed=7)
         assert a["metrics"] == b["metrics"]  # pure function of (scenario, seed) (I8)
 
+    def test_strategy_lab_keeps_and_discards(self) -> None:
+        """The research funnel: many tested, the good kept, the rest dropped (I9)."""
+        from quantos.dashboard.demo import load_lab_ohlcv, run_strategy_lab
+
+        ohlcv, label = load_lab_ohlcv("demo", "ETF_RALLY", "BTC/USDT", seed=7)
+        assert "demo" in label.lower()
+        lab = run_strategy_lab(ohlcv, "BTC/USDT", seed=7, n_candidates=30, top_k=8)
+        assert lab["probadas"] == 30
+        assert 0 < lab["guardadas"] < 30  # some kept, some discarded
+        kept = [r for r in lab["rows"] if r["guardada"]]
+        dropped = [r for r in lab["rows"] if not r["guardada"]]
+        assert kept and dropped
+        assert all("Guardada" in r["veredicto"] for r in kept)
+        assert all("Descartada" in r["veredicto"] for r in dropped)
+
 
 class TestLauncher:
     def test_command_targets_streamlit_and_the_app(self) -> None:
