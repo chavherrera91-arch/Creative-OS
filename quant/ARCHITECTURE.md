@@ -203,9 +203,31 @@ archived episodes through the TF-IDF memory — optional LLM phrasing falls
 back to the deterministic template, and a guard test proves the package
 exposes no execution path, I1).
 
-Fable 5 continues milestone by milestone from **M9 — Intelligence
-Expansion**, each work package shipping with tests and preserving every
-invariant in §0.
+**Milestone 9 (Advanced Intelligence & Self-Improvement) is shipped** —
+WP-9.1→9.6, the slow §4.1 loop that keeps the platform healthy and pushes
+it to learn. Every module here **only proposes** — it never auto-applies a
+structural change (ARCHITECTURE §4.1), stays paper-only (I1) and
+reproducible (I8): the Knowledge Engine (`knowledge`: a weighted,
+provenance-carrying relationship graph built from news/on-chain/macro by a
+deterministic lexicon + co-occurrence baseline — `ETF ▸ inflows ▸ BTC ▸
+rally ▸ bull_regime` — with `infer`/`paths`/`explain` for committee context
+and optional `[llm]` triple extraction), Portfolio Intelligence
+(`portfolio`: point-in-time cross-asset correlations, net/gross/cluster
+exposures and Herfindahl concentration, with `PortfolioConcentration` a
+drop-in `RiskRule` whose flag the Risk Manager consumes, I5/I7), Meta-Risk
+(`risk.meta`: audits the Risk Manager from history — counterfactual veto
+quality per regime, proposing relaxation/tightening only), Self-Evaluation
+(`learning.self_eval`: an earlier-vs-recent review ranking decaying
+analysts and signals, honestly, I3), the Hypothesis Generator
+(`research.hypotheses`: distils self-eval + auditor + knowledge into ranked
+research questions and registers each as an immutable `Experiment`, closing
+the loop) and the Market Simulator (`sim`: replays a scenario bar-by-bar
+through the live pipeline into a paper broker, no look-ahead I2, no capital
+I1, a pure function of `(scenario, seed)` I8).
+
+With M1→M9 shipped the full ARCHITECTURE is realised end to end; further
+work hardens and tunes the platform (threshold calibration on real data,
+CI relocation) rather than adding milestones.
 
 ---
 
@@ -263,14 +285,14 @@ invariant in §0.
 | 13. Scenario simulator | `scenarios` | **M4 ✅ shipped** | `Scenario` |
 | **14. Market Regime Engine** | `regime` | **M4 ✅ shipped** | `RegimeClassifier`, `RegimeState` |
 | **15. Meta-Learning Engine** | `meta` | **M7 ✅ shipped** | `MetaLearner`, `RegimePerformanceTable` |
-| **16. Knowledge Engine** | `knowledge` | **M9** | `KnowledgeGraph`, `KnowledgeEngine` |
+| **16. Knowledge Engine** | `knowledge` | **M9 ✅ shipped** | `KnowledgeGraph`, `KnowledgeEngine` |
 | **17. AI Challenger** | `committee.challenger` | **M6 ✅ shipped** | `Challenger` |
 | **18. Confidence Calibration** | `committee.calibration` | **M7 ✅ shipped** | `ConfidenceCalibrator` |
 | **19. Experiment Registry** | `research.experiments` | **M7 ✅ shipped** | `Experiment`, `ExperimentRegistry` |
-| **20. Self-Evaluation** | `learning.self_eval` | **M9** | `SelfEvaluator` |
-| **21. Market Simulator** (real-time replay) | `scenarios.simulator` (extend), `sim` | **M4 ✅ shipped** / M9 replay | `MarketSimulator` |
-| **22. Portfolio Intelligence** | `portfolio` | **M9** | `PortfolioAnalyzer` |
-| **23. Meta-Risk + Hypothesis Gen** | `risk.meta`, `research.hypotheses` | **M9** | `MetaRisk`, `HypothesisGenerator` |
+| **20. Self-Evaluation** | `learning.self_eval` | **M9 ✅ shipped** | `SelfEvaluator` |
+| **21. Market Simulator** (real-time replay) | `scenarios.simulator`, `sim` | **M4 + M9 ✅ shipped** | `MarketSimulator` |
+| **22. Portfolio Intelligence** | `portfolio` | **M9 ✅ shipped** | `PortfolioAnalyzer` |
+| **23. Meta-Risk + Hypothesis Gen** | `risk.meta`, `research.hypotheses` | **M9 ✅ shipped** | `MetaRisk`, `HypothesisGenerator` |
 | **24. Hermes — Communications Agent** | `hermes` | **M8 ✅ shipped** | `Notifier`, `Channel`, `HermesAgent` |
 | **25. Statistical Validation** (anti-overfitting) | `backtest.validation` | **M3 ✅ shipped** | `deflated_sharpe`, `pbo`, `CombinatorialPurgedCV` |
 | **26. Execution Realism + Position Sizing** | `execution.costs`, `sizing` | **M3 ✅ shipped** | `CostModel`, `PositionSizer` |
