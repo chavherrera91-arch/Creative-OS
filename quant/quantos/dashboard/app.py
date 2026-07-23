@@ -1,24 +1,28 @@
-"""The Streamlit dashboard — a thin renderer over :mod:`quantos.dashboard.panels`.
+"""The Streamlit dashboard — a working app over :mod:`quantos.dashboard`.
 
 Streamlit is an optional ``[dashboard]`` extra and is imported lazily inside
-:func:`main`, so this module always imports offline (I6) and every number it
-draws is computed (and tested) UI-free in the panels module. Run it with::
+:func:`main`, so this module always imports offline (I6). Every number it draws
+is computed (and tested) UI-free in :mod:`quantos.dashboard.demo` /
+:mod:`quantos.dashboard.panels`. Launch it with one command::
 
-    streamlit run quantos/dashboard/app.py -- --lake-root .quantos-lake
+    quantos-app            # after: pip install -e '.[dashboard]'
+    # or:  streamlit run quantos/dashboard/app.py
 
-Chart discipline (dataviz): stat tiles for headline metrics; equity and
-drawdown as two separate single-series, single-axis charts (never a dual
-axis); tables for positions, news, lab rankings and reliability bins —
-identity lives in labels, not in invented palettes.
+It opens in the browser and runs a full seeded research pass out of the box
+(no lake to populate first): a committee decision, a backtest with the
+Deflated-Sharpe honesty layer (I9), regime history and confidence calibration.
+
+Chart discipline (dataviz): stat tiles for headlines; equity and drawdown as
+two separate single-series, single-axis charts (never a dual axis); tables for
+the rest — identity lives in labels, not invented palettes.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from quantos.dashboard.panels import build_dashboard_data
-from quantos.data.store import DuckDBStore
-from quantos.memory.archive import DecisionArchive
+from quantos.dashboard.demo import build_live_data
+from quantos.scenarios.library import scenario_names
 
 __all__ = ["main"]
 
@@ -34,50 +38,69 @@ def _require_streamlit() -> Any:
     return streamlit
 
 
-def main(lake_root: str = ".quantos-lake") -> None:  # pragma: no cover - UI shell
-    """Render the dashboard (requires the ``[dashboard]`` extra)."""
+def main() -> None:  # pragma: no cover - UI shell
+    """Render the interactive dashboard (requires the ``[dashboard]`` extra)."""
     st = _require_streamlit()
-    store = DuckDBStore(root=lake_root)
-    data = build_dashboard_data(store, DecisionArchive(store))
+    st.set_page_config(page_title="quantos — research terminal", page_icon="📈", layout="wide")
 
-    st.title("quantos — research dashboard (paper only)")
+    st.sidebar.title("quantos")
+    st.sidebar.caption("AI Quant Research Platform")
+    st.sidebar.warning("RESEARCH MODE — no live capital (I1)")
+    scenario = st.sidebar.selectbox("Scenario", scenario_names(), index=0)
+    seed = int(st.sidebar.number_input("Seed", min_value=0, max_value=9999, value=7, step=1))
+    st.sidebar.button("Run", type="primary")  # any rerun rebuilds with the inputs
 
-    if "metrics" in data:
-        metrics = data["metrics"]
-        tiles = st.columns(4)
-        tiles[0].metric("Sharpe", f"{metrics['sharpe']:.2f}")
-        tiles[1].metric("Win rate", f"{metrics['win_rate']:.0%}")
-        tiles[2].metric("Profit factor", f"{metrics['profit_factor']:.2f}")
-        tiles[3].metric("Total return", f"{metrics['total_return']:.1%}")
+    data = build_live_data(scenario, seed)
 
-    if "equity" in data:
-        st.subheader("Equity")
+    st.title("quantos — research terminal")
+    st.caption(
+        f"{data['scenario']} · {data['symbol']} · {data['n_bars']} bars · "
+        f"strategy {data['strategy']['name']} · seeded & deterministic"
+    )
+
+    # -- headline metrics + the honesty layer (I9) --------------------------
+    m = data["metrics"]
+    tiles = st.columns(5)
+    tiles[0].metric("Total return", f"{m['total_return']:+.1%}")
+    tiles[1].metric("Sharpe (annualised)", f"{m['sharpe']:.2f}")
+    tiles[2].metric("Win rate", f"{m['win_rate']:.0%}", f"{m['n_trades']} trades")
+    tiles[3].metric("Profit factor", f"{m['profit_factor']:.2f}")
+    tiles[4].metric("Deflated Sharpe", f"{m['deflated_sharpe']:.0%}", "prob. edge is real")
+    st.info(
+        f"Reality check (I9): that Sharpe of {m['sharpe']:.1f} is annualised on clean "
+        f"synthetic data — flattering. This run picked the best of {m['n_trials']} strategies, so "
+        f"the honest figure is the **Deflated Sharpe = {m['deflated_sharpe']:.0%}** (probability "
+        f"the edge is real once selection is accounted for). Beats buy & hold: "
+        f"{'yes' if m['beats_buy_and_hold'] else 'no'} · beats random: "
+        f"{'yes' if m['beats_random'] else 'no'}."
+    )
+
+    left, right = st.columns([1.5, 1])
+    with left:
+        st.subheader("Equity curve")
         st.line_chart(data["equity"]["equity"])  # single series, single axis
         st.subheader("Drawdown")
         st.line_chart(data["equity"]["drawdown"])  # its own chart, never a dual axis
-
-    if "decision" in data:
-        st.subheader("AI thinking — latest decision")
-        st.text(data["decision"]["narrative"])
-
-    if "positions" in data:
-        st.subheader("Open paper positions")
-        st.table(data["positions"]["open_positions"])
+    with right:
+        st.subheader("Investment Committee")
+        dec = data["decision"]
+        verdict = f"{dec['direction']} — {'APPROVED' if dec['approved'] else 'STAND DOWN'}"
+        (st.success if dec["approved"] else st.warning)(f"{verdict}  ·  regime {dec['regime']}")
+        st.caption(f"Composite confidence {dec['confidence']:.0%}")
+        st.text(dec["narrative"])
 
     st.subheader("Decisions by regime")
-    st.table(data["regimes"]["rows"])
+    st.table(data["regimes"])
 
-    if data["news"]["rows"]:
-        st.subheader("Latest news")
-        st.table(data["news"]["rows"])
-
-    if data["lab"]["rows"]:
-        st.subheader("Strategy Lab — top ranked")
-        st.table(data["lab"]["rows"])
-
-    if "reliability" in data and data["reliability"]["fitted"]:
-        st.subheader("Confidence reliability (stated vs realised)")
+    st.subheader("Confidence calibration")
+    if data["reliability"]["fitted"]:
         st.table(data["reliability"]["bins"])
+    else:
+        st.caption(
+            "Cold-start: the calibration map is the identity diagonal — the platform "
+            "will not claim calibration it hasn't earned yet (I3/I9). Points appear once "
+            "enough decisions close."
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover

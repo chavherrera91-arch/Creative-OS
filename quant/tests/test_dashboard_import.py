@@ -108,3 +108,42 @@ class TestAppImport:
 
         with pytest.raises(ImportError, match=r"\[dashboard\]"):
             _require_streamlit()
+
+
+class TestLiveData:
+    def test_build_live_data_runs_offline(self) -> None:
+        """The app works the moment it opens — a full run, no lake needed (I6)."""
+        from quantos.dashboard.demo import build_live_data
+
+        data = build_live_data("ETF_RALLY", seed=7)
+        assert data["scenario"] == "ETF_RALLY"
+        assert data["metrics"]["n_trades"] >= 0
+        assert 0.0 <= data["metrics"]["deflated_sharpe"] <= 1.0  # honesty layer present (I9)
+        assert "DECISION" in data["decision"]["narrative"]
+        assert data["regimes"]  # a regime breakdown was built
+        assert data["equity"]["final_equity"] > 0
+
+    def test_build_live_data_is_deterministic(self) -> None:
+        from quantos.dashboard.demo import build_live_data
+
+        a = build_live_data("ETF_RALLY", seed=7)
+        b = build_live_data("ETF_RALLY", seed=7)
+        assert a["metrics"] == b["metrics"]  # pure function of (scenario, seed) (I8)
+
+
+class TestLauncher:
+    def test_command_targets_streamlit_and_the_app(self) -> None:
+        from quantos.dashboard.launch import build_command
+
+        command = build_command(["--server.headless", "true"])
+        assert command[1:4] == ["-m", "streamlit", "run"]
+        assert command[4].endswith("app.py")
+        assert command[-2:] == ["--server.headless", "true"]
+
+    def test_main_uses_the_injected_runner(self) -> None:
+        from quantos.dashboard.launch import main
+
+        seen: dict = {}
+        code = main(argv=[], runner=lambda cmd: seen.setdefault("cmd", cmd) and 0 or 0)
+        assert code == 0
+        assert "streamlit" in seen["cmd"]  # never spawns a real process in tests

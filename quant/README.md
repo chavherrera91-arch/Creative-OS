@@ -262,7 +262,9 @@ The platform now shows its work and speaks for itself:
   regime history, calibration reliability, news and Strategy-Lab results —
   fully testable offline (I6). `app.py` is a thin Streamlit shell behind
   the `[dashboard]` extra, imported lazily; nothing in quantos ever
-  requires it.
+  requires it. Launch the app with one command — `quantos-app` — after
+  `pip install -e '.[dashboard]'`; it runs a full seeded pass out of the
+  box (no lake to populate first). See `SETUP.md` for real data + LLM setup.
 - **Observability** (`obs/`): `ExperimentLogger` records runs
   (params/metrics/tags) through MLflow when the `[obs]` extra exists and
   through an identical deterministic local-JSON store otherwise (I8);
