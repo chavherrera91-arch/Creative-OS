@@ -32,6 +32,24 @@ python -m pytest        # deberían pasar todos
 
 ## 2. Abrir la app (como Jarvis)
 
+### La forma más fácil: ícono en el Escritorio (un comando)
+
+Desde la carpeta `quant/`, corre esto **una vez**:
+
+```bash
+python install_desktop.py
+```
+
+Detecta tu sistema (Mac, Windows o Linux) solo, instala todo, y te deja un
+ícono **quantos** en tu Escritorio. A partir de ahí, **doble clic** y la app se
+abre en tu navegador. Nada de comandos, nada en internet — todo local.
+
+> En Mac, la primera vez: clic derecho sobre el ícono → **Abrir** (para que
+> macOS lo autorice). Para cerrar la app, cierra la ventana de terminal que se
+> abre con ella.
+
+### Alternativa: desde la terminal
+
 Un solo comando y se abre en el navegador:
 
 ```bash
