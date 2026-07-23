@@ -55,9 +55,15 @@ def desktop_dir() -> Path:
 def write_launcher(dest: Path, python: Path, system: str, repo: Path = REPO) -> Path:
     """Escribe el lanzador de doble clic apropiado para ``system`` en ``dest``."""
     if system == "Windows":
-        path = dest / "quantos.bat"
+        # A .vbs launcher runs the app SILENTLY (no black console window) via
+        # pythonw.exe — the "feels like a real app" trick. Run ..., 0, False =
+        # hidden window, don't wait.
+        pythonw = python.with_name("pythonw.exe")
+        path = dest / "quantos.vbs"
         path.write_text(
-            f'@echo off\r\ncd /d "{repo}"\r\n"{python}" -m quantos.dashboard.launch\r\npause\r\n',
+            'Set sh = CreateObject("WScript.Shell")\r\n'
+            f'sh.CurrentDirectory = "{repo}"\r\n'
+            f'sh.Run """{pythonw}"" -m quantos.dashboard.launch", 0, False\r\n',
             encoding="utf-8",
         )
     elif system == "Darwin":

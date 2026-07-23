@@ -44,9 +44,20 @@ Detecta tu sistema (Mac, Windows o Linux) solo, instala todo, y te deja un
 ícono **quantos** en tu Escritorio. A partir de ahí, **doble clic** y la app se
 abre en tu navegador. Nada de comandos, nada en internet — todo local.
 
-> En Mac, la primera vez: clic derecho sobre el ícono → **Abrir** (para que
-> macOS lo autorice). Para cerrar la app, cierra la ventana de terminal que se
-> abre con ella.
+El ícono que aparece según tu sistema:
+
+| Sistema | Ícono | Cómo se ve |
+|---|---|---|
+| **Windows** | `quantos.vbs` | Silencioso — **sin ventana negra** (usa `pythonw`, como Jarvis) |
+| **Mac** | `quantos.command` | Abre una terminal chica junto con la app |
+| **Linux** | `quantos.desktop` | Lanzador de escritorio estándar |
+
+> **Mac:** la primera vez, clic derecho sobre el ícono → **Abrir** (para que
+> macOS lo autorice).
+>
+> **Para cerrar la app:** cierra la pestaña del navegador. En Windows, como no
+> hay ventana visible, para detener el servidor por completo puedes reiniciar la
+> PC o cerrar el proceso `python` desde el Administrador de tareas.
 
 ### Alternativa: desde la terminal
 
