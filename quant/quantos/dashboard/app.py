@@ -186,16 +186,21 @@ def _vault_section(st: Any) -> None:  # pragma: no cover - UI
         return
     rows = [
         {
+            "": "💎" if g.diamond else "",
             "familia": g.family,
+            "mercados": ", ".join(g.markets) if g.markets else g.source,
             "confianza_real": g.deflated_sharpe,
             "sharpe_fuera_muestra": g.oos_sharpe,
             "régimen": g.regime,
-            "datos": g.source,
             "estrategia": g.name,
         }
         for g in gold
     ]
-    st.caption(f"**{len(gold)}** estrategias de oro guardadas (mejor primero).")
+    diamonds = sum(1 for g in gold if g.diamond)
+    st.caption(
+        f"**{len(gold)}** estrategias de oro guardadas (mejor primero) · "
+        f"**{diamonds}** 💎 diamantes (pasan en 2+ mercados)."
+    )
     st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
 

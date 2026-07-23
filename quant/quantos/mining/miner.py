@@ -14,6 +14,7 @@ otherwise it rotates through the synthetic scenario library and says so.
 
 from __future__ import annotations
 
+import hashlib
 import time
 from collections.abc import Callable
 from typing import Any
@@ -43,6 +44,7 @@ class StrategyMiner:
         seed: int = 7,
         force_synthetic: bool = False,
         market: str = "crypto",
+        markets: list[tuple[str, str]] | None = None,
     ) -> None:
         """
         Args:
@@ -66,15 +68,17 @@ class StrategyMiner:
         self.seed = seed
         self.force_synthetic = force_synthetic
         self.market = market
+        #: markets mined each round, as ``(symbol, kind)`` — one, or several.
+        self.markets: list[tuple[str, str]] = markets or [(symbol, market)]
 
     # -- data ----------------------------------------------------------------
-    def _load_ohlcv(self, round_index: int) -> tuple[pd.DataFrame, str]:
-        """Real market bars when reachable, else a rotating synthetic scenario."""
+    def _load_for(self, symbol: str, kind: str, round_index: int) -> tuple[pd.DataFrame, str]:
+        """Real bars for one market when reachable, else a rotating scenario."""
         if not self.force_synthetic:
-            if self.market == "forex":
+            if kind == "forex":
                 from quantos.data.forex import fetch_forex_ohlcv
 
-                frame, source = fetch_forex_ohlcv(self.symbol, self.timeframe, self.bars)
+                frame, source = fetch_forex_ohlcv(symbol, self.timeframe, self.bars)
                 if source == "yfinance":
                     return frame, "yfinance"
             else:
@@ -84,7 +88,7 @@ class StrategyMiner:
                 settings = Settings(
                     **{  # type: ignore[arg-type]
                         **Settings.from_env().as_dict(),
-                        "symbol": self.symbol,
+                        "symbol": symbol,
                         "timeframe": self.timeframe,
                         "bars": self.bars,
                     }
@@ -94,7 +98,12 @@ class StrategyMiner:
                 if collector.last_source == "ccxt":
                     return frame, "ccxt"
         names = scenario_names()
-        scenario = get_scenario(names[round_index % len(names)])
+        # Different scenario per (market, round) so offline mining still varies.
+        # A *stable* hash (not Python's per-process randomised ``hash``) keeps the
+        # scenario choice reproducible across runs and machines (I8).
+        symbol_offset = int(hashlib.sha256(symbol.encode()).hexdigest(), 16)
+        offset = round_index + symbol_offset % len(names)
+        scenario = get_scenario(names[offset % len(names)])
         return scenario.generate(self.seed + round_index), scenario.name
 
     def _generate(self, seed: int) -> list:
@@ -118,34 +127,68 @@ class StrategyMiner:
 
     # -- one dig -------------------------------------------------------------
     def dig(self, round_index: int = 0) -> dict[str, Any]:
-        """Generate, test, and stash survivors for one round; return a summary."""
-        ohlcv, source = self._load_ohlcv(round_index)
+        """Test one batch across every market; stash survivors, flag diamonds.
+
+        The **same** batch is run through each market, so a strategy that
+        survives in two or more becomes a cross-market 💎 diamond (I9 robustness).
+        """
         specs = self._generate(self.seed + round_index)
-        result = StrategyLab(top_k=self.top_k, min_dsr=self.min_dsr, symbol=self.symbol).run(
-            specs, ohlcv
-        )
+        by_hash: dict[str, dict[str, Any]] = {}
+        sources: list[str] = []
+
+        for symbol, kind in self.markets:
+            ohlcv, source = self._load_for(symbol, kind, round_index)
+            sources.append(source)
+            result = StrategyLab(top_k=self.top_k, min_dsr=self.min_dsr, symbol=symbol).run(
+                specs, ohlcv
+            )
+            for record in result.records:
+                if not record.survived:
+                    continue
+                oos = round(float(record.oos_metrics.get("sharpe", 0.0)), 4)
+                dsr = round(float(record.validation.get("deflated_sharpe", 0.0)), 4)
+                entry = by_hash.get(record.spec.spec_hash())
+                if entry is None:
+                    by_hash[record.spec.spec_hash()] = {
+                        "spec": record.spec.as_dict(),
+                        "hash": record.spec.spec_hash(),
+                        "family": record.spec.family,
+                        "name": record.spec.name,
+                        "markets": {symbol},
+                        "oos": oos,
+                        "dsr": dsr,
+                        "regime": result.tested_regime,
+                    }
+                else:
+                    entry["markets"].add(symbol)
+                    entry["oos"] = max(entry["oos"], oos)
+                    entry["dsr"] = max(entry["dsr"], dsr)
+
         finds = [
             GoldStrategy(
-                spec=r.spec.as_dict(),
-                spec_hash=r.spec.spec_hash(),
-                family=r.spec.family,
-                name=r.spec.name,
-                oos_sharpe=round(float(r.oos_metrics.get("sharpe", 0.0)), 4),
-                deflated_sharpe=round(float(r.validation.get("deflated_sharpe", 0.0)), 4),
-                regime=result.tested_regime,
+                spec=e["spec"],
+                spec_hash=e["hash"],
+                family=e["family"],
+                name=e["name"],
+                oos_sharpe=e["oos"],
+                deflated_sharpe=e["dsr"],
+                regime=e["regime"] if len(self.markets) == 1 else "multi",
                 found_round=round_index,
-                source=source,
+                source=",".join(sorted(set(sources))),
+                markets=tuple(sorted(e["markets"])),
             )
-            for r in result.records
-            if r.survived
+            for e in by_hash.values()
         ]
         new = self.vault.add(finds)
+        diamonds = sum(1 for e in by_hash.values() if len(e["markets"]) >= 2)
         return {
             "round": round_index,
-            "source": source,
-            "regime": result.tested_regime,
+            "n_markets": len(self.markets),
+            "source": ",".join(sorted(set(sources))),
+            "regime": "multi" if len(self.markets) > 1 else (sources[0] if sources else ""),
             "tested": len(specs),
             "gold_found": len(finds),
+            "diamonds": diamonds,
             "new_in_vault": new,
             "vault_size": len(self.vault),
         }

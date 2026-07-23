@@ -7,7 +7,9 @@ from pathlib import Path
 from quantos.mining import GoldStrategy, StrategyMiner, StrategyVault
 
 
-def gold(hash_: str, dsr: float, oos: float = 1.0) -> GoldStrategy:
+def gold(
+    hash_: str, dsr: float, oos: float = 1.0, markets: tuple[str, ...] = ("BTC/USDT",)
+) -> GoldStrategy:
     return GoldStrategy(
         spec={"name": hash_},
         spec_hash=hash_,
@@ -17,6 +19,7 @@ def gold(hash_: str, dsr: float, oos: float = 1.0) -> GoldStrategy:
         deflated_sharpe=dsr,
         regime="TREND_UP",
         found_round=0,
+        markets=markets,
     )
 
 
@@ -44,12 +47,31 @@ class TestVault:
         vault.clear()
         assert len(vault) == 0
 
+    def test_cross_market_refind_becomes_a_diamond(self, tmp_path: Path) -> None:
+        """The same strategy found in a second market unions markets → 💎."""
+        vault = StrategyVault(path=tmp_path / "v.json")
+        vault.add([gold("a", 0.8, markets=("BTC/USDT",))])
+        assert not vault.top()[0].diamond
+        vault.add([gold("a", 0.8, markets=("EUR/USD",))])  # same spec, new market
+        top = vault.top()[0]
+        assert top.diamond  # now passes in 2 markets
+        assert set(top.markets) == {"BTC/USDT", "EUR/USD"}
+
+    def test_diamonds_rank_first(self, tmp_path: Path) -> None:
+        vault = StrategyVault(path=tmp_path / "v.json")
+        vault.add([gold("single", 0.99, markets=("BTC/USDT",))])
+        vault.add([gold("diam", 0.70, markets=("BTC/USDT", "EUR/USD"))])
+        assert vault.top()[0].spec_hash == "diam"  # a diamond outranks a higher single
+
 
 class TestMiner:
     def test_dig_saves_gold(self, tmp_path: Path) -> None:
         vault = StrategyVault(path=tmp_path / "v.json")
         miner = StrategyMiner(vault=vault, force_synthetic=True, n_candidates=30, min_dsr=0.6)
-        summary = miner.dig(round_index=0)
+        # Round 1 lands on a trending scenario with a real edge; the scenario a
+        # round mines is deterministic (stable hash, I8). Some rounds honestly
+        # find nothing (e.g. a crash scenario) — that abstention is valid (I3).
+        summary = miner.dig(round_index=1)
         assert summary["tested"] == 30
         assert summary["gold_found"] >= 1  # found some validated strategies
         assert len(vault) == summary["vault_size"]

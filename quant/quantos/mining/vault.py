@@ -42,6 +42,12 @@ class GoldStrategy:
     regime: str
     found_round: int
     source: str = ""
+    markets: tuple[str, ...] = ()
+
+    @property
+    def diamond(self) -> bool:
+        """A 'diamond' 💎: it passed in **two or more markets** (cross-market edge)."""
+        return len(self.markets) >= 2
 
     def as_dict(self) -> dict[str, Any]:
         """JSON-serialisable representation."""
@@ -55,6 +61,8 @@ class GoldStrategy:
             "regime": self.regime,
             "found_round": self.found_round,
             "source": self.source,
+            "markets": list(self.markets),
+            "diamond": self.diamond,
         }
 
     @classmethod
@@ -70,12 +78,13 @@ class GoldStrategy:
             regime=str(data.get("regime", "")),
             found_round=int(data.get("found_round", 0)),
             source=str(data.get("source", "")),
+            markets=tuple(data.get("markets", ())),
         )
 
 
-def _rank_key(gold: GoldStrategy) -> tuple[float, float, str]:
-    # Best first: highest honest edge, then OOS Sharpe, then stable by hash (I8).
-    return (-gold.deflated_sharpe, -gold.oos_sharpe, gold.spec_hash)
+def _rank_key(gold: GoldStrategy) -> tuple[int, float, float, str]:
+    # Diamonds first (cross-market), then honest edge, then OOS, then hash (I8).
+    return (0 if gold.diamond else 1, -gold.deflated_sharpe, -gold.oos_sharpe, gold.spec_hash)
 
 
 class StrategyVault:
@@ -105,13 +114,31 @@ class StrategyVault:
         return golds if n is None else golds[:n]
 
     def add(self, finds: list[GoldStrategy]) -> int:
-        """Merge new finds in; returns how many were genuinely new (I8 dedupe)."""
+        """Merge new finds in; returns how many were genuinely new (I8 dedupe).
+
+        Re-finding a strategy in a **new market** unions its markets — that is
+        how a single-market find grows into a cross-market 💎 diamond over time.
+        """
         existing = {g.spec_hash: g for g in self.all()}
         added = 0
         for gold in finds:
-            if gold.spec_hash not in existing:
+            prev = existing.get(gold.spec_hash)
+            if prev is None:
                 added += 1
-            existing[gold.spec_hash] = gold  # newest wins on re-find
+                existing[gold.spec_hash] = gold
+            else:
+                existing[gold.spec_hash] = GoldStrategy(
+                    spec=gold.spec or prev.spec,
+                    spec_hash=gold.spec_hash,
+                    family=gold.family or prev.family,
+                    name=gold.name or prev.name,
+                    oos_sharpe=max(gold.oos_sharpe, prev.oos_sharpe),
+                    deflated_sharpe=max(gold.deflated_sharpe, prev.deflated_sharpe),
+                    regime=gold.regime or prev.regime,
+                    found_round=prev.found_round,
+                    source=prev.source or gold.source,
+                    markets=tuple(sorted(set(prev.markets) | set(gold.markets))),
+                )
         kept = sorted(existing.values(), key=_rank_key)[: self.max_size]
         self._save(kept)
         return added

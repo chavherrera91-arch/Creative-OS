@@ -26,6 +26,27 @@ def log_path() -> Path:
     return base / "quantos" / "miner.log"
 
 
+def _parse_markets(spec: str) -> list[tuple[str, str]]:
+    """Parse ``'BTC/USDT:crypto,EUR/USD:forex'`` → ``[(sym, kind), ...]``.
+
+    A part without ``:kind`` defaults to crypto, unless it is a fiat pair.
+    """
+    fiat = {"USD", "EUR", "JPY", "GBP", "CHF", "CAD", "AUD", "NZD"}
+    out: list[tuple[str, str]] = []
+    for raw in spec.split(","):
+        part = raw.strip()
+        if not part:
+            continue
+        if ":" in part:
+            sym, kind = part.split(":", 1)
+        else:
+            sym = part
+            quote = part.split("/")[-1].upper() if "/" in part else ""
+            kind = "forex" if quote in fiat and "USDT" not in part.upper() else "crypto"
+        out.append((sym.strip(), kind.strip()))
+    return out or [("BTC/USDT", "crypto")]
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="quantos strategy miner (paper research).")
     parser.add_argument("--symbol", default="BTC/USDT", help="par a minar, ej. BTC/USDT o EUR/USD")
@@ -47,10 +68,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="strategies tested per round (más = más exploración, mismo rigor)",
     )
     parser.add_argument(
+        "--markets",
+        default=None,
+        help="varios mercados juntos, ej. 'BTC/USDT:crypto,ETH/USDT:crypto,EUR/USD:forex' "
+        "(una que pase en 2+ es un diamante 💎)",
+    )
+    parser.add_argument(
         "--synthetic", action="store_true", help="mine synthetic scenarios (no network)"
     )
     args = parser.parse_args(argv)
 
+    markets = _parse_markets(args.markets) if args.markets else [(args.symbol, args.market)]
     vault = StrategyVault()
     miner = StrategyMiner(
         vault=vault,
@@ -59,6 +87,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         n_candidates=max(2, args.candidates),
         force_synthetic=args.synthetic,
         market=args.market,
+        markets=markets,
     )
     log = log_path()
     log.parent.mkdir(parents=True, exist_ok=True)
@@ -68,10 +97,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         if "error" in summary:
             line = f"[{stamp}] ronda {summary['round']} ERROR: {summary['error']}"
         else:
+            diamonds = summary.get("diamonds", 0)
+            gem = f", 💎 {diamonds}" if diamonds else ""
             line = (
-                f"[{stamp}] ronda {summary['round']} · {summary['source']} · "
-                f"regimen {summary['regime']} · probadas {summary['tested']} · "
-                f"oro {summary['gold_found']} (nuevos {summary['new_in_vault']}) · "
+                f"[{stamp}] ronda {summary['round']} · {summary.get('n_markets', 1)} mercado(s) · "
+                f"{summary['source']} · probadas {summary['tested']} · "
+                f"oro {summary['gold_found']} (nuevos {summary['new_in_vault']}{gem}) · "
                 f"bóveda {summary['vault_size']}"
             )
         print(line, flush=True)
