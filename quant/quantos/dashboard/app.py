@@ -50,7 +50,11 @@ def main() -> None:  # pragma: no cover - UI shell
     seed = int(st.sidebar.number_input("Seed", min_value=0, max_value=9999, value=7, step=1))
     st.sidebar.button("Run", type="primary")  # any rerun rebuilds with the inputs
 
-    data = build_live_data(scenario, seed)
+    # Cache the (heavy) research pass so re-runs are instant, and show progress
+    # on the first cold run — otherwise the silent launch looks like a hang.
+    loader = st.cache_data(show_spinner=False)(build_live_data)
+    with st.spinner("Corriendo el análisis del comité… (unos segundos la primera vez)"):
+        data = loader(scenario, seed)
 
     st.title("quantos — research terminal")
     st.caption(
