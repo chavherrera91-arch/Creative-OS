@@ -60,6 +60,26 @@ def ensure_no_email_prompt(home: Path | None = None) -> Path:
     return cred
 
 
+_THEME = (
+    "[theme]\n"
+    'base = "dark"\n'
+    'primaryColor = "#34D2BE"\n'
+    'backgroundColor = "#0B1017"\n'
+    'secondaryBackgroundColor = "#141D28"\n'
+    'textColor = "#E8EFF7"\n'
+    'font = "monospace"\n'
+)
+
+
+def ensure_theme(home: Path | None = None) -> Path:
+    """Write the dark-teal terminal theme globally (so it applies from any cwd)."""
+    config = (home or Path.home()) / ".streamlit" / "config.toml"
+    if not config.exists():
+        config.parent.mkdir(parents=True, exist_ok=True)
+        config.write_text(_THEME, encoding="utf-8")
+    return config
+
+
 def main(
     argv: Sequence[str] | None = None, runner: Callable[[list[str]], int] | None = None
 ) -> int:
@@ -77,6 +97,7 @@ def main(
     import subprocess  # pragma: no cover - real launch path
 
     ensure_no_email_prompt()  # never hang on Streamlit's first-run email question
+    ensure_theme()  # dark-teal terminal look, applied from any working directory
     log = log_path()
     log.parent.mkdir(parents=True, exist_ok=True)
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # hide the console on Windows

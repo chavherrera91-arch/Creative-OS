@@ -27,6 +27,59 @@ from quantos.scenarios.library import scenario_names
 __all__ = ["main"]
 
 
+_STYLE = """
+<style>
+:root{
+  --q-bg:#0B1017; --q-surface:#141D28; --q-surface2:#1B2635; --q-border:#26323F;
+  --q-ink:#E8EFF7; --q-muted:#8A99AD; --q-accent:#34D2BE; --q-warn:#F3B34C;
+}
+.stApp{ background:var(--q-bg); color:var(--q-ink);
+  font-family:ui-monospace,"JetBrains Mono","SF Mono",Menlo,Consolas,monospace; }
+#MainMenu, header[data-testid="stHeader"], footer{ visibility:hidden; height:0; }
+.block-container{ padding-top:1rem; max-width:1220px; }
+section[data-testid="stSidebar"]{ background:var(--q-surface);
+  border-right:1px solid var(--q-border); }
+h1,h2,h3{ letter-spacing:-.3px; font-weight:600; }
+h2{ border-bottom:1px solid var(--q-border); padding-bottom:.35rem; margin-top:.4rem; }
+[data-testid="stMetric"]{ background:var(--q-surface); border:1px solid var(--q-border);
+  border-radius:12px; padding:14px 16px; }
+[data-testid="stMetricValue"]{ color:var(--q-accent); font-weight:600; letter-spacing:-.5px; }
+[data-testid="stMetricLabel"]{ color:var(--q-muted); text-transform:uppercase;
+  letter-spacing:.14em; font-size:.68rem; }
+.stButton>button{ background:var(--q-accent); color:#04110f; border:0; border-radius:8px;
+  font-weight:600; letter-spacing:.02em; }
+.stButton>button:hover{ filter:brightness(1.08); color:#04110f; }
+hr{ border-color:var(--q-border); }
+[data-testid="stDataFrame"]{ border:1px solid var(--q-border); border-radius:10px; }
+.q-hero{ display:flex; align-items:center; gap:16px; padding:2px 0 14px;
+  border-bottom:1px solid var(--q-border); margin-bottom:14px; }
+.q-word{ font-size:26px; font-weight:700; letter-spacing:-1px; line-height:1; }
+.q-word b{ color:var(--q-accent); }
+.q-eyebrow{ color:var(--q-muted); text-transform:uppercase; letter-spacing:.26em;
+  font-size:10px; margin-top:4px; }
+.q-badge{ margin-left:auto; color:var(--q-warn); font-size:11px; letter-spacing:.1em;
+  text-transform:uppercase; border:1px solid var(--q-warn); border-radius:6px; padding:6px 11px;
+  background:rgba(243,179,76,.08); white-space:nowrap; }
+</style>
+"""
+
+_HERO = """
+<div class="q-hero">
+  <div>
+    <div class="q-word">quantos<b>.</b></div>
+    <div class="q-eyebrow">AI Quant Research Platform</div>
+  </div>
+  <div class="q-badge">● Research mode · sin capital real</div>
+</div>
+"""
+
+
+def _inject_style(st: Any) -> None:  # pragma: no cover - UI
+    """Dark ink + teal terminal look, applied on top of the Streamlit theme."""
+    st.markdown(_STYLE, unsafe_allow_html=True)
+    st.markdown(_HERO, unsafe_allow_html=True)
+
+
 def _require_streamlit() -> Any:
     try:
         import streamlit
@@ -42,6 +95,7 @@ def main() -> None:  # pragma: no cover - UI shell
     """Render the interactive dashboard (requires the ``[dashboard]`` extra)."""
     st = _require_streamlit()
     st.set_page_config(page_title="quantos — research terminal", page_icon="📈", layout="wide")
+    _inject_style(st)
 
     st.sidebar.title("quantos")
     st.sidebar.caption("AI Quant Research Platform")
@@ -56,10 +110,9 @@ def main() -> None:  # pragma: no cover - UI shell
     with st.spinner("Corriendo el análisis del comité… (unos segundos la primera vez)"):
         data = loader(scenario, seed)
 
-    st.title("quantos — research terminal")
     st.caption(
-        f"{data['scenario']} · {data['symbol']} · {data['n_bars']} bars · "
-        f"strategy {data['strategy']['name']} · seeded & deterministic"
+        f"Escenario **{data['scenario']}** · {data['symbol']} · {data['n_bars']} barras · "
+        f"estrategia {data['strategy']['name']} · reproducible"
     )
 
     # -- headline metrics + the honesty layer (I9) --------------------------

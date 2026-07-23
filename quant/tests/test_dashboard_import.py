@@ -184,3 +184,10 @@ class TestLauncher:
         assert cred.read_text() == '[general]\nemail = ""\n'  # blank email, no prompt
         # Idempotent: a second call keeps the file.
         assert ensure_no_email_prompt(home=tmp_path) == cred
+
+    def test_theme_is_written(self, tmp_path: Path) -> None:
+        from quantos.dashboard.launch import ensure_theme
+
+        config = ensure_theme(home=tmp_path)
+        text = config.read_text()
+        assert "[theme]" in text and "#34D2BE" in text  # dark-teal terminal theme

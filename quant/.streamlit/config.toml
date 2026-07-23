@@ -1,0 +1,11 @@
+# quantos — research terminal theme (deep ink + teal, monospace).
+[theme]
+base = "dark"
+primaryColor = "#34D2BE"
+backgroundColor = "#0B1017"
+secondaryBackgroundColor = "#141D28"
+textColor = "#E8EFF7"
+font = "monospace"
+
+[client]
+toolbarMode = "minimal"
