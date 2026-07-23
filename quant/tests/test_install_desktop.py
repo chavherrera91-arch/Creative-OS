@@ -95,6 +95,15 @@ def test_windows_shortcut_script_sets_icon_and_target(tmp_path: Path) -> None:
     assert f'IconLocation = "{icon}"' in script  # the custom logo, not the generic icon
 
 
+def test_windows_venv_avoids_long_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+    """On Windows the venv lives in a short LOCALAPPDATA path, not the deep repo."""
+    monkeypatch.setattr(ins.platform, "system", lambda: "Windows")
+    monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\PC\AppData\Local")
+    venv = ins.default_venv()
+    assert "quantos" in str(venv) and str(venv).endswith(".venv")
+    assert "Downloads" not in str(venv)  # never inside the download folder
+
+
 def test_no_install_needs_an_existing_venv(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
     # With --no-install and a missing venv it fails loudly instead of guessing.
     code = ins.main(["--no-install", "--venv", str(tmp_path / "absent")])

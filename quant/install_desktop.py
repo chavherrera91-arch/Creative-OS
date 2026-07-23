@@ -16,6 +16,7 @@ No publica nada en internet: la app corre local en tu máquina. Con
 from __future__ import annotations
 
 import argparse
+import os
 import platform
 import subprocess
 import sys
@@ -23,6 +24,21 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent
 ASSETS = REPO / "quantos" / "dashboard" / "assets"
+
+
+def default_venv() -> Path:
+    """Where to create the virtual environment.
+
+    On Windows the environment goes in a SHORT, stable location
+    (``%LOCALAPPDATA%\\quantos\\.venv``) instead of inside the (often deeply
+    nested, long-named) download folder — otherwise Streamlit's deep files blow
+    past the 260-character path limit (WinError 206). Elsewhere it lives beside
+    the code.
+    """
+    if platform.system() == "Windows":
+        base = Path(os.environ.get("LOCALAPPDATA") or Path.home())
+        return base / "quantos" / ".venv"
+    return REPO / ".venv"
 
 
 def icon_path(system: str, assets: Path = ASSETS) -> Path:
@@ -43,7 +59,8 @@ def ensure_venv(venv: Path) -> Path:
     if python.exists():
         print(f"Entorno ya existe: {venv}")
         return python
-    print("Creando entorno e instalando (una sola vez, puede tardar un par de minutos)...")
+    print(f"Creando entorno en {venv} (una sola vez, puede tardar un par de minutos)...")
+    venv.parent.mkdir(parents=True, exist_ok=True)
     subprocess.check_call([sys.executable, "-m", "venv", str(venv)])
     subprocess.check_call([str(python), "-m", "pip", "install", "--upgrade", "pip"])
     subprocess.check_call([str(python), "-m", "pip", "install", "-e", f"{REPO}[dashboard]"])
@@ -165,7 +182,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--no-install", action="store_true", help="solo escribir el lanzador (no crear el entorno)"
     )
-    parser.add_argument("--venv", default=str(REPO / ".venv"), help="ruta del entorno virtual")
+    parser.add_argument("--venv", default=str(default_venv()), help="ruta del entorno virtual")
     args = parser.parse_args(argv)
 
     venv = Path(args.venv)
