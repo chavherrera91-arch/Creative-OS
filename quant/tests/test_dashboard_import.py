@@ -147,3 +147,16 @@ class TestLauncher:
         code = main(argv=[], runner=lambda cmd: seen.setdefault("cmd", cmd) and 0 or 0)
         assert code == 0
         assert "streamlit" in seen["cmd"]  # never spawns a real process in tests
+
+    def test_launches_with_a_console_python(self) -> None:
+        from pathlib import Path
+
+        from quantos.dashboard.launch import build_command
+
+        exe = Path(build_command()[0]).name.lower()
+        assert "pythonw" not in exe  # Streamlit needs the console python, not pythonw
+
+    def test_log_path_is_named_for_diagnostics(self) -> None:
+        from quantos.dashboard.launch import log_path
+
+        assert log_path().name == "last-run.log"
