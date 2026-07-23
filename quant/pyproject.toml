@@ -51,6 +51,7 @@ dev = [
 [project.scripts]
 quantos = "quantos.cli:main"
 quantos-app = "quantos.dashboard.launch:main"
+quantos-miner = "quantos.mining.run:main"
 
 [tool.setuptools.packages.find]
 include = ["quantos*"]

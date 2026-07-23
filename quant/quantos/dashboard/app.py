@@ -107,7 +107,43 @@ def main() -> None:  # pragma: no cover - UI shell
         )
 
     _strategy_lab_section(st, scenario, seed)
+    _vault_section(st)
     _live_paper_section(st)
+
+
+def _vault_section(st: Any) -> None:  # pragma: no cover - UI
+    """Show the gold the automatic miner has saved to the vault."""
+    import pandas as pd
+
+    from quantos.mining import StrategyVault
+
+    st.divider()
+    st.subheader("🏆 Bóveda de oro — estrategias que el minero guardó")
+    st.caption(
+        "El minero cava solo (aunque no estés) y **guarda aquí** las estrategias que "
+        "pasan el examen honesto. Enciéndelo con el ícono **Minar quantos**."
+    )
+    vault = StrategyVault()
+    gold = vault.top(50)
+    if not gold:
+        st.info(
+            "La bóveda está vacía todavía. Abre el ícono **Minar quantos** de tu escritorio "
+            "y déjalo corriendo — cada tanto cava y va guardando el oro aquí."
+        )
+        return
+    rows = [
+        {
+            "familia": g.family,
+            "confianza_real": g.deflated_sharpe,
+            "sharpe_fuera_muestra": g.oos_sharpe,
+            "régimen": g.regime,
+            "datos": g.source,
+            "estrategia": g.name,
+        }
+        for g in gold
+    ]
+    st.caption(f"**{len(gold)}** estrategias de oro guardadas (mejor primero).")
+    st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
 
 def _live_paper_section(st: Any) -> None:  # pragma: no cover - UI
