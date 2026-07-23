@@ -27,9 +27,17 @@ class TestScorecard:
         assert card.verdict in {
             "REJECTED",
             "NEEDS WORK",
+            "NEEDS WORK — falla una prueba crítica (★)",
             "PROMETEDORA — necesita más pruebas",
             "READY FOR PAPER TRADING",
         }
+
+    def test_a_failed_critical_check_caps_the_verdict(self) -> None:
+        """A high score never earns READY if a critical (★) test fails (anti-overfit)."""
+        strat, ohlcv = a_strategy()
+        card = evaluate(strat, ohlcv, n_trials=12)
+        if any(not c.passed for c in card.checks if c.critical):
+            assert "READY" not in card.verdict  # honesty gate holds
 
     def test_card_covers_the_full_battery(self) -> None:
         strat, ohlcv = a_strategy()
@@ -42,8 +50,10 @@ class TestScorecard:
             "Out-of-Sample (DSR)",
             "Monte Carlo (peor DD)",
             "Robustez por régimen",
+            "Robustez temporal",
             "Sensibilidad",
             "Operaciones",
+            "Supera comprar y mantener",
         ):
             assert expected in names
 

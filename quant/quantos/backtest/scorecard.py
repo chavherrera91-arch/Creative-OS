@@ -47,11 +47,12 @@ class Check:
     target: str
     passed: bool
     weight: int
+    critical: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         """JSON-serialisable representation."""
         return {
-            "metrica": self.name,
+            "metrica": ("★ " if self.critical else "") + self.name,
             "valor": self.value,
             "objetivo": self.target,
             "cumple": "✅" if self.passed else "❌",
@@ -148,14 +149,54 @@ def _sensitivity(
     return frac >= 0.5, frac
 
 
-def _verdict(score: int) -> str:
+def _resample(ohlcv: pd.DataFrame, k: int) -> pd.DataFrame:
+    """Aggregate every ``k`` bars into one — a coarser timeframe."""
+    groups = np.arange(len(ohlcv)) // k
+    agg = ohlcv.groupby(groups).agg(
+        open=("open", "first"),
+        high=("high", "max"),
+        low=("low", "min"),
+        close=("close", "last"),
+        volume=("volume", "sum"),
+    )
+    agg.index = ohlcv.index[::k][: len(agg)]
+    return agg
+
+
+def _timeframe_robustness(
+    strategy: Any, ohlcv: pd.DataFrame, fee_bps: float, slippage_bps: float
+) -> tuple[bool, float]:
+    """Does the edge survive on coarser timeframes, not just this one?"""
+    wins = 0
+    tried = 0
+    for k in (2, 4):
+        coarse = _resample(ohlcv, k)
+        if len(coarse) < 60:
+            continue
+        tried += 1
+        try:
+            result = backtest(
+                coarse, strategy.signals(coarse), fee_bps=fee_bps, slippage_bps=slippage_bps
+            )
+        except Exception:  # noqa: BLE001 - a timeframe that won't run counts as a miss
+            continue
+        if total_return(result.returns) > 0:
+            wins += 1
+    frac = wins / tried if tried else 1.0
+    return frac >= 0.5, frac
+
+
+def _verdict(score: int, critical_failed: bool) -> str:
+    """A high score never overrides a failed *critical* test (anti-overfit honesty)."""
+    if score < 50:
+        return "REJECTED"
+    if critical_failed:
+        return "NEEDS WORK — falla una prueba crítica (★)"
     if score >= 85:
         return "READY FOR PAPER TRADING"
     if score >= 70:
         return "PROMETEDORA — necesita más pruebas"
-    if score >= 50:
-        return "NEEDS WORK"
-    return "REJECTED"
+    return "NEEDS WORK"
 
 
 def evaluate(
@@ -202,33 +243,54 @@ def evaluate(
 
     regime_ok, regime_frac = _regime_robustness(strategy, scenarios, seed, fee_bps, slippage_bps)
     sens_ok, sens_frac = _sensitivity(strategy, ohlcv, fee_bps, slippage_bps)
+    tf_ok, tf_frac = _timeframe_robustness(strategy, ohlcv, fee_bps, slippage_bps)
 
+    beats_bh = bool(result.baselines.get("beats_buy_and_hold", False))
+    beats_rnd = bool(result.baselines.get("beats_random", False))
     pf = metrics["profit_factor"]
     dd = metrics["max_drawdown"]
     recovery = total_return(ret) / abs(dd) if dd < 0 else float("inf")
     expectancy = _expectancy(ret)
     consistency = _consistency(ret)
 
+    # ``critical=True`` checks are the anti-overfit gate: failing any of them
+    # caps the verdict at NEEDS WORK no matter how high the raw score is.
     checks = [
         Check(
-            "Rentabilidad", f"{metrics['total_return']:+.1%}", "> 0", metrics["total_return"] > 0, 6
+            "Supera comprar y mantener",
+            "sí" if beats_bh else "no",
+            "sí",
+            beats_bh,
+            12,
+            critical=True,
         ),
-        Check("Profit Factor", f"{pf:.2f}", "> 1.5", pf > 1.5, 12),
-        Check("Sharpe", f"{metrics['sharpe']:.2f}", "> 1.5", metrics["sharpe"] > 1.5, 12),
-        Check("Sortino", f"{metrics['sortino']:.2f}", "> 2.0", metrics["sortino"] > 2.0, 8),
-        Check("Max Drawdown", f"{dd:.1%}", "> -15%", dd > -0.15, 12),
-        Check("Expectancy", f"{expectancy:+.2f}R", "> 0", expectancy > 0, 8),
-        Check("Recovery Factor", f"{recovery:.2f}", "> 2", recovery > 2.0, 6),
-        Check("Operaciones", f"{result.n_trades}", "≥ 100", result.n_trades >= 100, 8),
-        Check("Consistencia", f"{consistency:.0%}", "> 50%", consistency > 0.5, 8),
+        Check("Supera al azar", "sí" if beats_rnd else "no", "sí", beats_rnd, 6),
         Check(
-            "Out-of-Sample (DSR)", f"{oos_dsr:.0%}", "≥ 60%", oos_dsr >= 0.6 and oos_sharpe > 0, 12
+            "Rentabilidad", f"{metrics['total_return']:+.1%}", "> 0", metrics["total_return"] > 0, 4
+        ),
+        Check("Profit Factor", f"{pf:.2f}", "> 1.5", pf > 1.5, 8),
+        Check("Sharpe", f"{metrics['sharpe']:.2f}", "> 1.5", metrics["sharpe"] > 1.5, 6),
+        Check("Sortino", f"{metrics['sortino']:.2f}", "> 2.0", metrics["sortino"] > 2.0, 4),
+        Check("Max Drawdown", f"{dd:.1%}", "> -15%", dd > -0.15, 10, critical=True),
+        Check("Expectancy", f"{expectancy:+.2f}R", "> 0", expectancy > 0, 6),
+        Check("Recovery Factor", f"{recovery:.2f}", "> 2", recovery > 2.0, 4),
+        Check("Operaciones", f"{result.n_trades}", "≥ 100", result.n_trades >= 100, 8),
+        Check("Consistencia", f"{consistency:.0%}", "> 50%", consistency > 0.5, 6),
+        Check(
+            "Out-of-Sample (DSR)",
+            f"{oos_dsr:.0%}",
+            "≥ 60%",
+            oos_dsr >= 0.6 and oos_sharpe > 0,
+            12,
+            critical=True,
         ),
         Check("Monte Carlo (peor DD)", f"{worst_dd:.1%}", "> -30%", worst_dd > -0.30, 8),
-        Check("Robustez por régimen", f"{regime_frac:.0%}", "≥ 60%", regime_ok, 12),
+        Check("Robustez por régimen", f"{regime_frac:.0%}", "≥ 60%", regime_ok, 12, critical=True),
+        Check("Robustez temporal", f"{tf_frac:.0%}", "≥ 50%", tf_ok, 8),
         Check("Sensibilidad", f"{sens_frac:.0%}", "≥ 50%", sens_ok, 8),
     ]
     total_weight = sum(c.weight for c in checks)
     earned = sum(c.weight for c in checks if c.passed)
     score = round(100 * earned / total_weight) if total_weight else 0
-    return Scorecard(checks=checks, score=score, verdict=_verdict(score))
+    critical_failed = any(not c.passed for c in checks if c.critical)
+    return Scorecard(checks=checks, score=score, verdict=_verdict(score, critical_failed))
