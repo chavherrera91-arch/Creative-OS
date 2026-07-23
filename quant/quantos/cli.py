@@ -27,6 +27,7 @@ import pandas as pd
 
 from quantos.backtest.engine import backtest, committee_signals
 from quantos.backtest.monte_carlo import monte_carlo
+from quantos.backtest.validation import deflated_sharpe_from_returns
 from quantos.backtest.walk_forward import walk_forward
 from quantos.committee.committee import default_committee
 from quantos.config import Settings
@@ -59,8 +60,10 @@ def _build_parser() -> argparse.ArgumentParser:
         )
         p.add_argument(
             "--channels",
-            action="store_true",
-            help="attach deterministic synthetic macro/sentiment/on-chain channels",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+            help="attach synthetic macro/sentiment/on-chain channels so the full "
+            "five-analyst panel votes (default: on; --no-channels for price-only)",
         )
 
     def lake_opts(p: argparse.ArgumentParser) -> None:
@@ -174,8 +177,7 @@ def _cmd_decide(args: argparse.Namespace) -> int:
             lake.ingest(settings.symbol, settings.timeframe, mode=mode)
             snapshot = lake.snapshot(settings.symbol, settings.timeframe)
         print(
-            f"data source: lake ({snapshot.bars} curated bars, "
-            f"all channels as-of {snapshot.as_of})"
+            f"data source: lake ({snapshot.bars} curated bars, all channels as-of {snapshot.as_of})"
         )
     else:
         collector = DataCollector(settings=settings, force_synthetic=args.synthetic)
@@ -237,6 +239,19 @@ def _cmd_backtest(args: argparse.Namespace) -> int:
     )
     _print_json("strategy metrics", result.metrics)
     _print_json("baselines (must beat both to claim an edge)", result.baselines)
+
+    # Statistical honesty (I9): the annualised Sharpe flatters a smooth curve;
+    # the Deflated Sharpe is the probability the edge is real, not luck.
+    honest = deflated_sharpe_from_returns(result.returns, n_trials=1)
+    _print_json(
+        "reality check — is the edge real? (I9)",
+        {
+            "sharpe_per_bar": round(honest["sharpe"], 4),
+            "skew": round(honest["skew"], 3),
+            "kurtosis": round(honest["kurtosis"], 3),
+            "deflated_sharpe_prob_edge_positive": round(honest["deflated_sharpe"], 4),
+        },
+    )
     print(f"\ntrades: {result.n_trades} | final equity: {float(result.equity.iloc[-1]):.4f}")
     return 0
 

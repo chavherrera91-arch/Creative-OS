@@ -23,6 +23,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from quantos.backtest.engine import backtest
+from quantos.backtest.validation import deflated_sharpe_from_returns
 from quantos.committee.committee import default_committee
 from quantos.data.models import MarketSnapshot
 from quantos.explain.explainer import explain_decision
@@ -68,7 +69,8 @@ def main() -> None:
 
     # -- 2) a backtest against the mandatory baselines (I9) -----------------
     rule("2) BACKTEST vs BASELINES (hay que ganarle a ambos para tener ventaja)")
-    specs = RandomStrategyGenerator().generate(12, seed=args.seed, diversity=0.3)
+    n_trials = 12
+    specs = RandomStrategyGenerator().generate(n_trials, seed=args.seed, diversity=0.3)
     strategy = max(
         (IndicatorStrategy(s) for s in specs),
         key=lambda st: float(st.signals(ohlcv).diff().abs().sum()),
@@ -78,7 +80,7 @@ def main() -> None:
     m = result.metrics
     print(f"Estrategia elegida : {strategy.spec.name} (familia {strategy.spec.family})")
     print(f"Retorno total      : {m['total_return'] * 100:+.2f}%")
-    print(f"Sharpe             : {m['sharpe']:.2f}")
+    print(f"Sharpe (anualizado): {m['sharpe']:.2f}   <- se ve enorme, pero ojo (ver abajo)")
     print(f"Win rate           : {m['win_rate'] * 100:.1f}%   ({result.n_trades} operaciones)")
     print(f"Profit factor      : {m['profit_factor']:.2f}")
     print(f"¿Le gana al azar?         {'SÍ' if result.baselines.get('beats_random') else 'NO'}")
@@ -86,6 +88,17 @@ def main() -> None:
         f"¿Le gana a comprar&mantener? "
         f"{'SÍ' if result.baselines.get('beats_buy_and_hold') else 'NO'}"
     )
+
+    # -- 2b) the honesty layer: don't get fooled by a big Sharpe (I9) -------
+    honest = deflated_sharpe_from_returns(result.returns, n_trials=n_trials)
+    print("\n  PRUEBA DE REALIDAD (esto es lo que de verdad importa):")
+    print(f"  Probé {n_trials} estrategias y me quedé con la mejor. Ajustando por eso,")
+    print(
+        f"  el Sharpe deflactado = {honest['deflated_sharpe']:.0%} "
+        "= probabilidad de que la ventaja sea real y no suerte."
+    )
+    print("  (El Sharpe anualizado infla el número; con datos sintéticos tan limpios,")
+    print("   siempre se ve optimista. El número honesto es este, no el de arriba.)")
 
     # -- 3) real-time replay through the paper broker (I1/I2) ---------------
     rule("3) REPLAY EN TIEMPO REAL (barra por barra → broker de PAPEL)")
