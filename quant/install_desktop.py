@@ -90,6 +90,51 @@ def write_launcher(dest: Path, python: Path, system: str, repo: Path = REPO) -> 
     return path
 
 
+def write_stop_launcher(dest: Path, system: str) -> Path:
+    """Escribe el lanzador de 'detener' (apaga la app corriendo) para ``system``."""
+    if system == "Windows":
+        # Termina solo los procesos de python cuya línea de comando menciona
+        # nuestra app (nunca otros python). Silencioso, con un aviso al final.
+        path = dest / "Detener quantos.vbs"
+        path.write_text(
+            'Set svc = GetObject("winmgmts:\\\\.\\root\\cimv2")\r\n'
+            "Set procs = svc.ExecQuery("
+            '"SELECT * FROM Win32_Process WHERE Name=\'python.exe\' OR Name=\'pythonw.exe\'")\r\n'
+            "For Each p In procs\r\n"
+            "  If Not IsNull(p.CommandLine) Then\r\n"
+            '    If InStr(p.CommandLine, "quantos") > 0 And InStr(p.CommandLine, "dashboard") > 0 '
+            "Then\r\n"
+            "      p.Terminate()\r\n"
+            "    End If\r\n"
+            "  End If\r\n"
+            "Next\r\n"
+            'MsgBox "quantos se detuvo.", 64, "quantos"\r\n',
+            encoding="utf-8",
+        )
+    elif system == "Darwin":
+        path = dest / "Detener quantos.command"
+        path.write_text(
+            "#!/bin/bash\npkill -f 'quantos.*dashboard'\n"
+            'echo "quantos se detuvo."; sleep 1\n',
+            encoding="utf-8",
+        )
+        path.chmod(0o755)
+    else:  # Linux
+        path = dest / "Detener quantos.desktop"
+        path.write_text(
+            "[Desktop Entry]\n"
+            "Type=Application\n"
+            "Name=Detener quantos\n"
+            "Comment=Stop the running quantos app\n"
+            "Exec=pkill -f 'quantos.*dashboard'\n"
+            "Terminal=false\n"
+            "Categories=Office;Finance;\n",
+            encoding="utf-8",
+        )
+        path.chmod(0o755)
+    return path
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Instala quantos como app de escritorio.")
     parser.add_argument(
@@ -104,10 +149,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"No encuentro el Python del entorno en {python}. Corre sin --no-install primero.")
         return 1
 
-    launcher = write_launcher(desktop_dir(), python, platform.system())
-    print("\n¡Listo! Se creó el ícono en tu Escritorio:")
-    print(f"   {launcher}")
-    print("\nHaz doble clic en él para abrir la app en tu navegador.")
+    desktop = desktop_dir()
+    launcher = write_launcher(desktop, python, platform.system())
+    stopper = write_stop_launcher(desktop, platform.system())
+    print("\n¡Listo! Se crearon 2 íconos en tu Escritorio:")
+    print(f"   ▶  {launcher.name}   (abrir la app)")
+    print(f"   ■  {stopper.name}   (detenerla)")
+    print(f"\nEscritorio: {desktop}")
+    print("Haz doble clic en el primero para abrir la app en tu navegador.")
     if platform.system() == "Darwin":
         print("(La primera vez, si macOS pregunta, permite abrirlo: clic derecho → Abrir.)")
     return 0

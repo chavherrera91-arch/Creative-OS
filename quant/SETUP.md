@@ -40,9 +40,13 @@ Desde la carpeta `quant/`, corre esto **una vez**:
 python install_desktop.py
 ```
 
-Detecta tu sistema (Mac, Windows o Linux) solo, instala todo, y te deja un
-ícono **quantos** en tu Escritorio. A partir de ahí, **doble clic** y la app se
-abre en tu navegador. Nada de comandos, nada en internet — todo local.
+Detecta tu sistema (Mac, Windows o Linux) solo, instala todo, y te deja **dos
+íconos** en tu Escritorio:
+
+- **quantos** → doble clic para **abrir** la app en tu navegador.
+- **Detener quantos** → doble clic para **apagarla** por completo.
+
+Nada de comandos, nada en internet — todo local.
 
 El ícono que aparece según tu sistema:
 
