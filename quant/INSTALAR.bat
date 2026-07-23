@@ -1,5 +1,4 @@
 @echo off
-chcp 65001 >nul
 title Instalar quantos
 cd /d "%~dp0"
 echo ============================================
