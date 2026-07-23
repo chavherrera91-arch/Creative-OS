@@ -107,6 +107,64 @@ def main() -> None:  # pragma: no cover - UI shell
         )
 
     _strategy_lab_section(st, scenario, seed)
+    _live_paper_section(st)
+
+
+def _live_paper_section(st: Any) -> None:  # pragma: no cover - UI
+    """A demo account: real live prices, real-time decisions, fake money (I1)."""
+    import pandas as pd
+
+    from quantos.live import LivePaperTrader
+
+    st.divider()
+    st.subheader("📡 Demo en vivo — paper trading")
+    st.caption(
+        "Precios **reales** del mercado y decisiones en **tiempo real**, pero con dinero "
+        "**ficticio** — como una cuenta demo. Nunca se mueve capital real (I1)."
+    )
+
+    cols = st.columns([2, 1, 1])
+    symbol = cols[0].text_input("Símbolo", value="BTC/USDT", key="live_symbol")
+    do_step = cols[1].button("▶ Dar un paso", type="primary")
+    do_reset = cols[2].button("↺ Reiniciar")
+
+    trader = LivePaperTrader(symbol=symbol)
+    if do_reset:
+        trader.reset()
+        st.success("Cuenta demo reiniciada a la plata inicial.")
+    if do_step:
+        with st.spinner("Trayendo el precio real y consultando al comité…"):
+            try:
+                step = trader.step()
+                real = step["source"] == "ccxt"
+                src = "precio REAL ✅" if real else "precio simulado (sin conexión) ⚠️"
+                verdict = "aprobada" if step["approved"] else "stand-down"
+                acted = "operó" if step["traded"] else "sin operar"
+                st.success(
+                    f"{src} · {step['price']:,.2f} · decisión **{step['direction']}** "
+                    f"({verdict}) · {acted}"
+                )
+            except Exception as exc:  # noqa: BLE001 - surface any live-data hiccup
+                st.error(f"No se pudo dar el paso (¿sin internet?): {exc}")
+
+    account = trader.account()
+    history = account["history"]
+    equity_now = float(history[-1]["equity"]) if history else trader.cash
+    pnl = equity_now - trader.cash
+    tiles = st.columns(3)
+    tiles[0].metric("Equity (papel)", f"${equity_now:,.0f}", f"{pnl:+,.0f}")
+    tiles[1].metric("Operaciones", account["n_trades"])
+    tiles[2].metric("Pasos dados", len(history))
+
+    if history:
+        frame = pd.DataFrame(history)
+        st.line_chart(frame.set_index("as_of")["equity"])
+        st.dataframe(frame.tail(12), width="stretch", hide_index=True)
+    else:
+        st.info(
+            "Aún no hay pasos. Dale a **▶ Dar un paso**: trae el precio real de ahora, el "
+            "comité decide, y se ejecuta con dinero ficticio. Cada clic = un momento en vivo."
+        )
 
 
 def _strategy_lab_section(st: Any, scenario: str, seed: int) -> None:  # pragma: no cover - UI
